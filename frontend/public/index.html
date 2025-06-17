@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dogecoin Node Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>
+                <img src="dogecoin-logo.svg" 
+                     width="28" height="28" 
+                     alt="Dogecoin Logo" 
+                     style="margin-right: 0.5rem;">
+                Dogecoin Node Monitor
+            </h1>
+            <div class="status-indicator">
+                <span id="connection-status" class="status disconnected">Disconnected</span>
+                <span id="last-update">Never</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Overview Cards -->
+        <section class="overview-cards">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cube"></i> Block Height</h3>
+                </div>
+                <div class="card-content">
+                    <div class="metric-value" id="block-height">-</div>
+                    <div class="metric-label">Current Block</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-network-wired"></i> Connections</h3>
+                </div>
+                <div class="card-content">
+                    <div class="metric-value" id="connections">-</div>
+                    <div class="metric-label">Peer Connections</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-memory"></i> Mempool</h3>
+                </div>
+                <div class="card-content">
+                    <div class="metric-value" id="mempool-size">-</div>
+                    <div class="metric-label">Transactions</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-sync-alt"></i> Sync Progress</h3>
+                </div>
+                <div class="card-content">
+                    <div class="metric-value" id="sync-progress">-</div>
+                    <div class="metric-label">Blockchain Sync</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-chart-line"></i> Block Height Over Time</h3>
+                </div>
+                <div class="card-content">
+                    <canvas id="blockHeightChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-chart-area"></i> Mempool Size</h3>
+                </div>
+                <div class="card-content">
+                    <canvas id="mempoolChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detailed Information -->
+        <section class="details-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-info-circle"></i> Node Information</h3>
+                </div>
+                <div class="card-content">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>Version:</label>
+                            <span id="node-version">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Protocol Version:</label>
+                            <span id="protocol-version">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Chain:</label>
+                            <span id="chain">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Difficulty:</label>
+                            <span id="difficulty">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Hash Rate:</label>
+                            <span id="hash-rate">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Size on Disk:</label>
+                            <span id="size-on-disk">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cube"></i> Recent Blocks</h3>
+                </div>
+                <div class="card-content">
+                    <div class="table-container">
+                        <table id="blocks-table">
+                            <thead>
+                                <tr>
+                                    <th>Height</th>
+                                    <th>Hash</th>
+                                    <th>Time</th>
+                                    <th>Transactions</th>
+                                    <th>Size</th>
+                                </tr>
+                            </thead>
+                            <tbody id="blocks-tbody">
+                                <tr>
+                                    <td colspan="5" class="loading">Loading blocks...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Peers Section -->
+        <section class="peers-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-users"></i> Connected Peers</h3>
+                </div>
+                <div class="card-content">
+                    <div class="table-container">
+                        <table id="peers-table">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Version</th>
+                                    <th>Connection Time</th>
+                                    <th>Bytes Sent</th>
+                                    <th>Bytes Received</th>
+                                </tr>
+                            </thead>
+                            <tbody id="peers-tbody">
+                                <tr>
+                                    <td colspan="5" class="loading">Loading peers...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
