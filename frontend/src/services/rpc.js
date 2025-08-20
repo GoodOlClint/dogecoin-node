@@ -201,6 +201,35 @@ class DogecoinRPCService {
             timestamp: new Date().toISOString()
         };
     }
+
+    /**
+     * Gets chain tips information (for detecting reorganizations)
+     * @returns {Promise<Array>} Array of chain tip objects
+     */
+    async getChainTips() {
+        try {
+            return await this.call('getchaintips');
+        } catch (error) {
+            this.logger.warn('Could not get chain tips', { error: error.message });
+            return [];
+        }
+    }
+
+    /**
+     * Gets mempool information
+     * @returns {Promise<Object>} Mempool information
+     */
+    async getMempoolInfo() {
+        return await this.call('getmempoolinfo');
+    }
+
+    /**
+     * Gets network hash rate
+     * @returns {Promise<number>} Network hash rate in hashes per second
+     */
+    async getNetworkHashPS(blocks = 120) {
+        return await this.call('getnetworkhashps', [blocks]);
+    }
 }
 
 /**

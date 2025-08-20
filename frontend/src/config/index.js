@@ -45,7 +45,7 @@ const config = {
             blockTimeAnomaly: parseFloat(process.env.WATCHDOG_BLOCK_TIME) || 3.0,
             difficultySpike: parseFloat(process.env.WATCHDOG_DIFFICULTY) || 3.0,
             mempoolFlood: parseInt(process.env.WATCHDOG_MEMPOOL) || 10000,
-            lowNodeCount: parseInt(process.env.WATCHDOG_NODE_COUNT) || 50,
+            lowNodeCount: parseInt(process.env.WATCHDOG_NODE_COUNT) || 5,
             orphanBlockThreshold: parseInt(process.env.WATCHDOG_ORPHAN) || 5
         }
     },

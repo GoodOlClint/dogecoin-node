@@ -383,40 +383,239 @@ class DogecoinWatchdog extends EventEmitter {
     }
 
     /**
-     * Checks for potential 51% attacks
+     * Comprehensive 51% attack detection based on professional security criteria
      * @param {Object} currentData - Current network data
      * @returns {Promise<void>}
      */
     async check51PercentAttack(currentData) {
         try {
-            // Get recent blocks for analysis
-            const recentBlocks = await this.getRecentBlocks(currentData.blockchain.blocks, 10);
-            
-            // Analyze block time distribution
-            const blockTimes = recentBlocks.map((block, index) => {
-                if (index === 0) return null;
-                return block.time - recentBlocks[index - 1].time;
-            }).filter(time => time !== null);
+            // Skip if no baseline established
+            if (!this.baselines.avgBlockTime || this.baselines.avgBlockTime <= 0) {
+                return;
+            }
 
-            const avgBlockTime = this.calculateAverage(blockTimes);
-            const expectedBlockTime = this.baselines.avgBlockTime;
+            // 1. Check for deep reorganizations (primary 51% attack indicator)
+            await this.checkForDeepReorgs(currentData);
 
-            if (avgBlockTime < expectedBlockTime * 0.5) {
+            // 2. Analyze hashrate and difficulty anomalies
+            await this.checkHashrateAnomalies(currentData);
+
+            // 3. Detect unusual block timing patterns
+            await this.checkBlockTimingAnomalies(currentData);
+
+            // 4. Monitor mempool volatility
+            await this.checkMempoolVolatility(currentData);
+
+        } catch (error) {
+            this.logger.error('Failed to check for 51% attack', { error: error.message });
+        }
+    }
+
+    /**
+     * Check for deep reorganizations - primary 51% attack indicator
+     */
+    async checkForDeepReorgs(currentData) {
+        try {
+            const chainTips = await this.rpc.getChainTips();
+            const deepReorgs = chainTips.filter(tip => 
+                tip.status === 'valid-fork' && tip.branchlen >= 6
+            );
+
+            if (deepReorgs.length > 0) {
+                const maxDepth = Math.max(...deepReorgs.map(tip => tip.branchlen));
                 this.createAlert(
-                    'RAPID_BLOCK_GENERATION',
+                    'DEEP_REORGANIZATION',
                     'CRITICAL',
-                    `🚨 RAPID BLOCK GENERATION! Potential 51% attack - blocks generated ${expectedBlockTime / avgBlockTime}x faster than normal`,
+                    `🚨 DEEP CHAIN REORGANIZATION DETECTED! Fork depth: ${maxDepth} blocks. This is a PRIMARY INDICATOR of a 51% attack in progress!`,
                     {
-                        avgBlockTime,
-                        expectedBlockTime,
-                        recentBlocks: recentBlocks.length,
-                        suspiciousRatio: expectedBlockTime / avgBlockTime
+                        forkDepth: maxDepth,
+                        totalForks: deepReorgs.length,
+                        chainTips: deepReorgs,
+                        analysis: 'Chain reorganizations of 6+ blocks are extremely rare in normal operation and typically indicate an active 51% attack',
+                        recommendation: 'URGENT: Contact exchange partners and pause large transactions until resolved'
+                    }
+                );
+            }
+
+            // Check for frequent shallow reorgs (also suspicious)
+            const recentReorgs = chainTips.filter(tip => 
+                tip.status === 'valid-fork' && tip.branchlen >= 2
+            );
+
+            if (recentReorgs.length >= 3) {
+                this.createAlert(
+                    'FREQUENT_REORGANIZATIONS',
+                    'HIGH',
+                    `⚠️ FREQUENT CHAIN REORGANIZATIONS! ${recentReorgs.length} competing forks detected. Possible coordinated attack preparation.`,
+                    {
+                        forkCount: recentReorgs.length,
+                        chainTips: recentReorgs,
+                        analysis: 'Multiple simultaneous forks may indicate an attacker testing their control'
                     }
                 );
             }
 
         } catch (error) {
-            this.logger.error('Failed to check for 51% attack', { error: error.message });
+            this.logger.warn('Could not check chain reorganizations', { error: error.message });
+        }
+    }
+
+    /**
+     * Detect sudden hashrate surges that could indicate external ASIC power
+     */
+    async checkHashrateAnomalies(currentData) {
+        try {
+            const networkHashPS = currentData.network.networkhashps;
+            const difficulty = currentData.blockchain.difficulty;
+            
+            // Store hashrate history
+            this.metrics.hashRate.push({
+                timestamp: Date.now(),
+                hashrate: networkHashPS,
+                difficulty: difficulty
+            });
+
+            // Keep only last 20 measurements
+            if (this.metrics.hashRate.length > 20) {
+                this.metrics.hashRate = this.metrics.hashRate.slice(-20);
+            }
+
+            if (this.metrics.hashRate.length >= 5) {
+                const recent = this.metrics.hashRate.slice(-3);
+                const baseline = this.metrics.hashRate.slice(0, -3);
+                
+                const recentAvg = this.calculateAverage(recent.map(h => h.hashrate));
+                const baselineAvg = this.calculateAverage(baseline.map(h => h.hashrate));
+
+                // Alert on sudden 3x+ hashrate increase (external ASIC farms)
+                if (recentAvg > baselineAvg * 3) {
+                    this.createAlert(
+                        'HASHRATE_SURGE',
+                        'CRITICAL',
+                        `🚨 MASSIVE HASHRATE SURGE! Network hashrate increased ${(recentAvg / baselineAvg).toFixed(1)}x suddenly. Possible external ASIC attack!`,
+                        {
+                            recentHashrate: (recentAvg / 1e12).toFixed(2) + ' TH/s',
+                            baselineHashrate: (baselineAvg / 1e12).toFixed(2) + ' TH/s',
+                            surgeRatio: (recentAvg / baselineAvg).toFixed(1),
+                            analysis: 'Dogecoin is merged-mined with Litecoin. Sudden hashrate spikes may indicate large pools redirecting ASIC power for an attack'
+                        }
+                    );
+                }
+            }
+
+        } catch (error) {
+            this.logger.warn('Could not check hashrate anomalies', { error: error.message });
+        }
+    }
+
+    /**
+     * Detect suspicious block timing patterns (long gaps + bursts)
+     */
+    async checkBlockTimingAnomalies(currentData) {
+        try {
+            const recentBlocks = await this.getRecentBlocks(currentData.blockchain.blocks, 20);
+            
+            if (recentBlocks.length < 10) return;
+
+            // Calculate block time intervals
+            const blockTimes = [];
+            for (let i = 1; i < recentBlocks.length; i++) {
+                const timeInterval = recentBlocks[i - 1].time - recentBlocks[i].time;
+                if (timeInterval > 0) {
+                    blockTimes.push(timeInterval);
+                }
+            }
+
+            if (blockTimes.length === 0) return;
+
+            // Check for attack pattern: long gap + burst of fast blocks
+            const avgBlockTime = this.calculateAverage(blockTimes);
+            const maxGap = Math.max(...blockTimes);
+            const recentFast = blockTimes.slice(0, 5); // Last 5 intervals
+            const avgRecentFast = this.calculateAverage(recentFast);
+
+            // Pattern: Long stall (20+ minutes) followed by very fast blocks
+            if (maxGap > 1200 && avgRecentFast < 30) { // 20 min gap + 30s avg recent
+                this.createAlert(
+                    'SUSPICIOUS_BLOCK_PATTERN',
+                    'CRITICAL',
+                    `🚨 ATTACK PATTERN DETECTED! Long block gap (${(maxGap/60).toFixed(1)} min) followed by rapid burst (${avgRecentFast.toFixed(1)}s avg). Classic 51% attack signature!`,
+                    {
+                        maxGap: (maxGap/60).toFixed(1) + ' minutes',
+                        recentAverage: avgRecentFast.toFixed(1) + ' seconds',
+                        pattern: 'long-gap-then-burst',
+                        analysis: 'Attacker likely mined a private chain during the gap, then released it to replace public blocks',
+                        blockTimes: blockTimes
+                    }
+                );
+            }
+
+            // Check for consistently fast blocks (hashrate advantage)
+            else if (avgBlockTime < 30) { // Dogecoin target is ~60 seconds
+                this.createAlert(
+                    'RAPID_BLOCK_GENERATION',
+                    'HIGH',
+                    `⚠️ RAPID BLOCK GENERATION! Recent blocks: ${avgBlockTime.toFixed(1)}s avg (target: ~60s). Possible hashrate advantage attack.`,
+                    {
+                        avgBlockTime: avgBlockTime.toFixed(1) + ' seconds',
+                        targetTime: '60 seconds',
+                        speedRatio: (60 / avgBlockTime).toFixed(1) + 'x faster',
+                        analysis: 'Sustained fast block generation may indicate majority hashrate control',
+                        blockTimes: blockTimes
+                    }
+                );
+            }
+
+        } catch (error) {
+            this.logger.warn('Could not check block timing patterns', { error: error.message });
+        }
+    }
+
+    /**
+     * Monitor mempool for transaction volatility during attacks
+     */
+    async checkMempoolVolatility(currentData) {
+        try {
+            const mempoolInfo = await this.rpc.getMempoolInfo();
+            const mempoolSize = mempoolInfo.size;
+            
+            // Store mempool history
+            this.metrics.mempool.push({
+                timestamp: Date.now(),
+                size: mempoolSize,
+                bytes: mempoolInfo.bytes
+            });
+
+            // Keep only last 10 measurements
+            if (this.metrics.mempool.length > 10) {
+                this.metrics.mempool = this.metrics.mempool.slice(-10);
+            }
+
+            if (this.metrics.mempool.length >= 5) {
+                const recent = this.metrics.mempool.slice(-2);
+                const baseline = this.metrics.mempool.slice(0, -2);
+                
+                const recentAvg = this.calculateAverage(recent.map(m => m.size));
+                const baselineAvg = this.calculateAverage(baseline.map(m => m.size));
+
+                // Alert on sudden large mempool swings (confirmed→unconfirmed txns)
+                if (recentAvg > baselineAvg * 5 && baselineAvg > 10) {
+                    this.createAlert(
+                        'MEMPOOL_VOLATILITY',
+                        'HIGH',
+                        `⚠️ MEMPOOL SURGE! Transaction pool increased ${(recentAvg / baselineAvg).toFixed(1)}x suddenly. Possible chain reorganization affecting confirmations.`,
+                        {
+                            recentSize: Math.round(recentAvg),
+                            baselineSize: Math.round(baselineAvg),
+                            surgeRatio: (recentAvg / baselineAvg).toFixed(1),
+                            analysis: 'Large mempool increases may indicate previously confirmed transactions becoming unconfirmed due to chain reorgs'
+                        }
+                    );
+                }
+            }
+
+        } catch (error) {
+            this.logger.warn('Could not check mempool volatility', { error: error.message });
         }
     }
 
