@@ -149,9 +149,13 @@ function configureRoutes() {
         });
     });
 
-    // Catch-all for SPA routing
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    // Catch-all middleware for SPA routing (Express 5.x compatible)
+    app.use((req, res, next) => {
+        if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/websocket')) {
+            res.sendFile(path.join(__dirname, 'public', 'index.html'));
+        } else {
+            next();
+        }
     });
 
     // 404 handler
