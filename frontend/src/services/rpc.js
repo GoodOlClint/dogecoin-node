@@ -30,10 +30,16 @@ class DogecoinRPCService {
                 this.logger.warn('RPC cookie file not found, using fallback credentials', {
                     cookiePath: config.rpc.cookiePath
                 });
-                return {
-                    username: process.env.DOGECOIN_RPC_USER || 'dogecoin',
-                    password: process.env.DOGECOIN_RPC_PASS || 'SecureDogePassword123!'
-                };
+                
+                // Require environment variables for security
+                const username = process.env.DOGECOIN_RPC_USER;
+                const password = process.env.DOGECOIN_RPC_PASS;
+                
+                if (!username || !password) {
+                    throw new Error('RPC credentials not found. Set DOGECOIN_RPC_USER and DOGECOIN_RPC_PASS environment variables or ensure cookie file exists.');
+                }
+                
+                return { username, password };
             }
         } catch (error) {
             this.logger.error('Error reading RPC cookie', { 

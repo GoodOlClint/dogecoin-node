@@ -83,8 +83,12 @@ RUN echo "Verifying Dogecoin binaries exist:" \
 COPY --from=frontend-builder /app/frontend /app/frontend
 WORKDIR /app/frontend
 
-# Create dogecoin data directories, logs directory, and generate comprehensive configuration
-RUN mkdir -p /data /app/logs 
+# Create non-root user for security
+RUN groupadd -r dogecoin && useradd -r -g dogecoin -d /app -s /bin/bash dogecoin
+
+# Create dogecoin data directories, logs directory with proper ownership
+RUN mkdir -p /data /app/logs \
+    && chown -R dogecoin:dogecoin /data /app
 
 # Copy startup script
 COPY docker-entrypoint.sh /usr/local/bin/
@@ -95,6 +99,9 @@ EXPOSE 22556 3000
 
 # Set default environment variables
 ENV NODE_ENV=production
+
+# Switch to non-root user
+USER dogecoin
 
 LABEL name="dogecoin-node-monitor" 
 LABEL description="Dogecoin fullnode container with web monitoring interface (latest release, optimized)"

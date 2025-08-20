@@ -122,10 +122,10 @@ const validateInput = (req, res, next) => {
                     if (pattern.test(value)) {
                         logger.warn('Suspicious input detected', {
                             path: currentPath,
-                            value: value.substring(0, 100),
+                            value: value.substring(0, 50) + '...', // Limit logged value length
                             pattern: pattern.toString(),
                             ip: req.ip,
-                            userAgent: req.get('User-Agent')
+                            userAgent: req.get('User-Agent')?.substring(0, 200) // Limit UA length
                         });
                         
                         return res.status(400).json({

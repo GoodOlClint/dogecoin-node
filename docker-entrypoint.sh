@@ -1,14 +1,16 @@
 #!/bin/bash
 set -e
 
-# Create directories if they don't exist
+# Create directories if they don't exist (should already exist from Dockerfile)
 mkdir -p /data /app/logs
+
+# Set secure permissions
+chmod 700 /data
+chmod 755 /app/logs
 
 echo "Starting web frontend in background..."
 cd /app/frontend
-which node || echo "Node.js not found in PATH"
-ls -la /app/frontend || echo "Frontend directory not found"
-npm start &
+node server.js &
 FRONTEND_PID=$!
 echo "Frontend started with PID: $FRONTEND_PID"
 
