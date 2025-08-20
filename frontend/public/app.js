@@ -24,8 +24,14 @@ class DogecoinMonitor {
             status: 'UNKNOWN'
         };
         
+        // Startup state
+        this.isStarting = true;
+        this.startupRetryCount = 0;
+        this.maxStartupRetries = 60; // 5 minutes with 5-second intervals
+        
         // Update UI to show initialization
         this.updateConnectionStatus('connecting', 'Initializing...');
+        this.showStartupOverlay();
         
         // Start initialization sequence
         this.initialize();
@@ -49,6 +55,122 @@ class DogecoinMonitor {
         } catch (error) {
             console.error('Failed to initialize:', error);
             this.updateConnectionStatus('error', 'Initialization Failed');
+        }
+    }
+    
+    showStartupOverlay() {
+        // Create startup overlay if it doesn't exist
+        let overlay = document.getElementById('startup-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'startup-overlay';
+            overlay.innerHTML = `
+                <div class="startup-content">
+                    <div class="startup-icon">
+                        <img src="dogecoin-logo.svg" alt="Dogecoin" width="64" height="64">
+                    </div>
+                    <h2>Dogecoin Node Starting Up</h2>
+                    <p>The Dogecoin daemon is initializing. This may take up to 5 minutes.</p>
+                    <div class="startup-progress">
+                        <div class="loading-spinner"></div>
+                        <p class="startup-status">Connecting to blockchain...</p>
+                    </div>
+                    <p class="startup-tip">💡 The node needs to sync with the network and load blockchain data</p>
+                </div>
+            `;
+            
+            // Add CSS styles
+            const style = document.createElement('style');
+            style.textContent = `
+                #startup-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(5px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                }
+                
+                .startup-content {
+                    text-align: center;
+                    padding: 2rem;
+                    max-width: 500px;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                }
+                
+                .startup-icon {
+                    margin-bottom: 1.5rem;
+                }
+                
+                .startup-content h2 {
+                    color: #2c3e50;
+                    margin-bottom: 1rem;
+                    font-size: 1.5rem;
+                }
+                
+                .startup-content p {
+                    color: #7f8c8d;
+                    margin-bottom: 1rem;
+                    line-height: 1.5;
+                }
+                
+                .startup-progress {
+                    margin: 2rem 0;
+                }
+                
+                .loading-spinner {
+                    width: 40px;
+                    height: 40px;
+                    border: 3px solid #ecf0f1;
+                    border-top: 3px solid #f39c12;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 1rem;
+                }
+                
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                
+                .startup-status {
+                    font-weight: 500;
+                    color: #34495e;
+                }
+                
+                .startup-tip {
+                    font-size: 0.9rem;
+                    color: #95a5a6;
+                    font-style: italic;
+                }
+            `;
+            
+            document.head.appendChild(style);
+            document.body.appendChild(overlay);
+        }
+    }
+    
+    hideStartupOverlay() {
+        const overlay = document.getElementById('startup-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+        this.isStarting = false;
+    }
+    
+    updateStartupStatus(message) {
+        const statusElement = document.querySelector('.startup-status');
+        if (statusElement) {
+            statusElement.textContent = message;
         }
     }
     
@@ -139,14 +261,31 @@ class DogecoinMonitor {
         try {
             console.log('Loading initial data via REST API...');
             
+            // Update startup status if still starting
+            if (this.isStarting) {
+                this.updateStartupStatus('Loading blockchain data...');
+            }
+            
             // Load basic info
             console.log('Fetching /api/info...');
             const infoResponse = await fetch('/api/info');
             if (!infoResponse.ok) {
+                if (this.isStarting && this.startupRetryCount < this.maxStartupRetries) {
+                    this.startupRetryCount++;
+                    this.updateStartupStatus(`Waiting for Dogecoin node... (attempt ${this.startupRetryCount}/${this.maxStartupRetries})`);
+                    setTimeout(() => this.loadInitialData(), 5000);
+                    return;
+                }
                 throw new Error(`Info API failed: ${infoResponse.status} ${infoResponse.statusText}`);
             }
             const info = await infoResponse.json();
             console.log('Info data received:', info);
+            
+            // If we get here and were starting, hide the overlay
+            if (this.isStarting) {
+                this.hideStartupOverlay();
+            }
+            
             this.updateUI(info);
             
             // Load blocks
@@ -188,6 +327,20 @@ class DogecoinMonitor {
         } catch (error) {
             console.error('Error loading initial data:', error);
             console.error('Error stack:', error.stack);
+            
+            // Handle startup retries
+            if (this.isStarting && this.startupRetryCount < this.maxStartupRetries) {
+                this.startupRetryCount++;
+                this.updateStartupStatus(`Connection failed, retrying... (${this.startupRetryCount}/${this.maxStartupRetries})`);
+                setTimeout(() => this.loadInitialData(), 5000);
+                return;
+            }
+            
+            // If not starting or max retries exceeded, show error
+            if (this.isStarting) {
+                this.hideStartupOverlay();
+            }
+            
             const statusElement = document.getElementById('connection-status');
             if (statusElement) {
                 statusElement.textContent = 'Connection Failed';
