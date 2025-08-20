@@ -10,7 +10,7 @@ on:
     branches:
       - main
     paths:
-      - 'Dockerfile.monitor'
+      - 'Dockerfile'
       - 'frontend/**'
       - '.github/workflows/docker-publish.yml'
 
@@ -85,7 +85,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.monitor
+          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
