@@ -66,8 +66,7 @@ log "Starting Dogecoin Node Monitor..."
 # Start Dogecoin daemon in background with logging
 log "Starting Dogecoin daemon..."
 dogecoind -datadir=/data -disablewallet \
-    -printtoconsole=0 \
-    -logtofile=1 \
+    -printtoconsole=1 \
     -daemon \
     -pid=/data/dogecoind.pid > /app/logs/dogecoind.log 2>&1 &
 
