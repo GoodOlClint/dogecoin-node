@@ -1,0 +1,144 @@
+name: Build and Publish Docker Image
+
+on:
+  schedule:
+    # Check for new Dogecoin releases daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+  push:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile.monitor'
+      - 'frontend/**'
+      - '.github/workflows/docker-publish.yml'
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: dogecoin-node-monitor
+
+jobs:
+  check-dogecoin-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new-version: ${{ steps.check.outputs.new-version }}
+      version-tag: ${{ steps.check.outputs.version-tag }}
+      should-build: ${{ steps.check.outputs.should-build }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new Dogecoin release
+        id: check
+        run: |
+          # Get latest Dogecoin release
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/dogecoin/dogecoin/releases/latest | jq -r '.tag_name')
+          echo "Latest Dogecoin version: $LATEST_VERSION"
+          
+          # Check if we already have this version tagged
+          if git tag -l | grep -q "dogecoin-$LATEST_VERSION"; then
+            echo "Version $LATEST_VERSION already exists"
+            echo "should-build=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version detected: $LATEST_VERSION"
+            echo "should-build=true" >> $GITHUB_OUTPUT
+            echo "version-tag=$LATEST_VERSION" >> $GITHUB_OUTPUT
+            echo "new-version=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push:
+    needs: check-dogecoin-release
+    if: needs.check-dogecoin-release.outputs.should-build == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ needs.check-dogecoin-release.outputs.version-tag }},enable=${{ needs.check-dogecoin-release.outputs.new-version == 'true' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.monitor
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create Git tag for new Dogecoin version
+        if: needs.check-dogecoin-release.outputs.new-version == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag "dogecoin-${{ needs.check-dogecoin-release.outputs.version-tag }}"
+          git push origin "dogecoin-${{ needs.check-dogecoin-release.outputs.version-tag }}"
+
+  notify:
+    needs: [check-dogecoin-release, build-and-push]
+    if: always() && needs.check-dogecoin-release.outputs.new-version == 'true' && needs.build-and-push.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: dogecoin-${{ needs.check-dogecoin-release.outputs.version-tag }}
+          release_name: Dogecoin Node Monitor ${{ needs.check-dogecoin-release.outputs.version-tag }}
+          body: |
+            🚀 **New Dogecoin Node Monitor Release**
+            
+            This release includes the latest Dogecoin Core version: **${{ needs.check-dogecoin-release.outputs.version-tag }}**
+            
+            ## Docker Images
+            - `docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest`
+            - `docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.check-dogecoin-release.outputs.version-tag }}`
+            
+            ## Quick Start
+            ```bash
+            docker run -d -p 3000:3000 -p 22556:22556 \
+              --name dogecoin-monitor \
+              ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ```
+            
+            Visit http://localhost:3000 to access the monitoring dashboard.
+            
+            ## What's New
+            - Updated to Dogecoin Core ${{ needs.check-dogecoin-release.outputs.version-tag }}
+            - Cross-platform support (AMD64 and ARM64)
+            - Real-time blockchain monitoring dashboard
+          draft: false
+          prerelease: false

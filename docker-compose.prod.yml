@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  dogecoin-node-monitor:
+    image: yourusername/dogecoin-node-monitor:latest  # Replace with your Docker Hub username
+    container_name: dogecoin-node-monitor
+    ports:
+      - "3000:3000"    # Web dashboard
+      - "22556:22556"  # Dogecoin P2P port
+      - "22555:22555"  # Dogecoin RPC port (optional, for external access)
+    volumes:
+      - dogecoin_data:/root/.dogecoin
+      - ./logs:/var/log/dogecoin
+    environment:
+      - DOGECOIN_RPCUSER=dogeuser
+      - DOGECOIN_RPCPASSWORD=dogepass123
+      - DOGECOIN_RPCPORT=22555
+      - DOGECOIN_PORT=22556
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  dogecoin_data:
+    driver: local

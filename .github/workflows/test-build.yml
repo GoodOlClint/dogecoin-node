@@ -1,0 +1,51 @@
+name: Test Build
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Dockerfile.monitor'
+      - 'frontend/**'
+      - '.github/workflows/**'
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test build for AMD64
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.monitor
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test frontend dependencies
+        run: |
+          cd frontend
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+          
+      - name: Run basic tests
+        run: |
+          # Test that the entrypoint script is executable
+          test -x docker-entrypoint.sh
+          
+          # Test that required frontend files exist
+          test -f frontend/server.js
+          test -f frontend/public/index.html
+          test -f frontend/public/app.js
+          test -f frontend/public/style.css
+          
+          echo "✅ All basic tests passed"
