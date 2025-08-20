@@ -372,6 +372,13 @@ class DogecoinMonitor {
                 document.getElementById('connections').textContent = data.network.connections;
                 document.getElementById('node-version').textContent = data.network.subversion;
                 document.getElementById('protocol-version').textContent = data.network.protocolversion;
+                
+                // Update hash rate
+                if (data.network.networkhashps) {
+                    document.getElementById('hash-rate').textContent = this.formatHashRate(data.network.networkhashps);
+                } else {
+                    document.getElementById('hash-rate').textContent = 'N/A';
+                }
             }
             
             if (data.mempool) {
@@ -510,11 +517,12 @@ class DogecoinMonitor {
         
         blocks.forEach(block => {
             const row = document.createElement('tr');
+            const explorerUrl = `https://dogechain.info/block/${block.hash}`;
             row.innerHTML = `
                 <td>${block.height.toLocaleString()}</td>
-                <td><span style="font-family: monospace; font-size: 0.8rem;">${block.hash.substring(0, 16)}...</span></td>
+                <td><a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" class="block-hash-link" title="View block ${block.height} on Dogechain.info">${block.hash.substring(0, 16)}...</a></td>
                 <td>${new Date(block.time * 1000).toLocaleString()}</td>
-                <td>${block.tx ? block.tx.length.toLocaleString() : 'N/A'}</td>
+                <td>${block.tx_count ? block.tx_count.toLocaleString() : 'N/A'}</td>
                 <td>${this.formatBytes(block.size)}</td>
             `;
             tbody.appendChild(row);
@@ -526,7 +534,7 @@ class DogecoinMonitor {
         tbody.innerHTML = '';
         
         if (!peers || peers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading">No peers connected</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="loading">No peers connected</td></tr>';
             return;
         }
         
@@ -534,10 +542,23 @@ class DogecoinMonitor {
             const row = document.createElement('tr');
             const connectionTime = new Date(peer.conntime * 1000).toLocaleString();
             
+            // Determine connection direction with styling
+            const direction = peer.inbound ? 
+                '<span class="peer-direction inbound" title="Incoming connection">⬇️ Inbound</span>' : 
+                '<span class="peer-direction outbound" title="Outgoing connection">⬆️ Outbound</span>';
+            
+            // Format ping time
+            const pingTime = peer.pingtime ? `${(peer.pingtime * 1000).toFixed(0)}ms` : 'N/A';
+            
+            // Extract version from subver
+            const version = peer.subver ? peer.subver.replace(/[\/\(\)]/g, '') : 'Unknown';
+            
             row.innerHTML = `
-                <td>${peer.addr}</td>
-                <td>${peer.subver || 'Unknown'}</td>
-                <td>${connectionTime}</td>
+                <td><span class="peer-address" title="Full address: ${peer.addr}">${peer.addr}</span></td>
+                <td>${direction}</td>
+                <td><span class="peer-version" title="Client: ${peer.subver || 'Unknown'}">${version}</span></td>
+                <td><span class="peer-ping" title="Round-trip time">${pingTime}</span></td>
+                <td><span class="peer-time" title="Connected since">${connectionTime}</span></td>
                 <td>${this.formatBytes(peer.bytessent)}</td>
                 <td>${this.formatBytes(peer.bytesrecv)}</td>
             `;
@@ -818,6 +839,19 @@ class DogecoinMonitor {
         if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
         if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
         return num.toLocaleString();
+    }
+    
+    formatHashRate(hashesPerSecond) {
+        if (!hashesPerSecond || hashesPerSecond === 0) return '0 H/s';
+        
+        // Convert to appropriate units
+        if (hashesPerSecond >= 1e18) return (hashesPerSecond / 1e18).toFixed(2) + ' EH/s';
+        if (hashesPerSecond >= 1e15) return (hashesPerSecond / 1e15).toFixed(2) + ' PH/s';
+        if (hashesPerSecond >= 1e12) return (hashesPerSecond / 1e12).toFixed(2) + ' TH/s';
+        if (hashesPerSecond >= 1e9) return (hashesPerSecond / 1e9).toFixed(2) + ' GH/s';
+        if (hashesPerSecond >= 1e6) return (hashesPerSecond / 1e6).toFixed(2) + ' MH/s';
+        if (hashesPerSecond >= 1e3) return (hashesPerSecond / 1e3).toFixed(2) + ' KH/s';
+        return hashesPerSecond.toFixed(2) + ' H/s';
     }
 }
 

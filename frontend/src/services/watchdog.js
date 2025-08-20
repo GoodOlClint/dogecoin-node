@@ -517,12 +517,20 @@ class DogecoinWatchdog extends EventEmitter {
             
             if (recentBlocks.length < 10) return;
 
-            // Calculate block time intervals
+            // Calculate block time intervals with block details
             const blockTimes = [];
+            const blockDetails = [];
             for (let i = 1; i < recentBlocks.length; i++) {
                 const timeInterval = recentBlocks[i - 1].time - recentBlocks[i].time;
                 if (timeInterval > 0) {
                     blockTimes.push(timeInterval);
+                    blockDetails.push({
+                        height: recentBlocks[i - 1].height,
+                        hash: recentBlocks[i - 1].hash,
+                        timestamp: recentBlocks[i - 1].time,
+                        timeFromPrevious: timeInterval,
+                        date: new Date(recentBlocks[i - 1].time * 1000).toISOString()
+                    });
                 }
             }
 
@@ -536,6 +544,9 @@ class DogecoinWatchdog extends EventEmitter {
 
             // Pattern: Long stall (20+ minutes) followed by very fast blocks
             if (maxGap > 1200 && avgRecentFast < 30) { // 20 min gap + 30s avg recent
+                const maxGapIndex = blockTimes.indexOf(maxGap);
+                const suspiciousBlocks = blockDetails.slice(0, 6); // Show more detail for this critical alert
+                
                 this.createAlert(
                     'SUSPICIOUS_BLOCK_PATTERN',
                     'CRITICAL',
@@ -545,13 +556,17 @@ class DogecoinWatchdog extends EventEmitter {
                         recentAverage: avgRecentFast.toFixed(1) + ' seconds',
                         pattern: 'long-gap-then-burst',
                         analysis: 'Attacker likely mined a private chain during the gap, then released it to replace public blocks',
-                        blockTimes: blockTimes
+                        suspiciousBlocks: suspiciousBlocks,
+                        blockTimes: blockTimes,
+                        recommendation: 'Verify these blocks on multiple blockchain explorers and check for chain reorganizations'
                     }
                 );
             }
 
             // Check for consistently fast blocks (hashrate advantage)
             else if (avgBlockTime < 30) { // Dogecoin target is ~60 seconds
+                const fastBlocks = blockDetails.slice(0, Math.min(10, blockDetails.length)); // Show up to 10 recent blocks
+                
                 this.createAlert(
                     'RAPID_BLOCK_GENERATION',
                     'HIGH',
@@ -561,7 +576,10 @@ class DogecoinWatchdog extends EventEmitter {
                         targetTime: '60 seconds',
                         speedRatio: (60 / avgBlockTime).toFixed(1) + 'x faster',
                         analysis: 'Sustained fast block generation may indicate majority hashrate control',
-                        blockTimes: blockTimes
+                        affectedBlocks: fastBlocks,
+                        blockTimes: blockTimes,
+                        totalBlocksAnalyzed: recentBlocks.length,
+                        recommendation: 'Monitor for chain reorganizations and verify block timestamps on blockchain explorers'
                     }
                 );
             }

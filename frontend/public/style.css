@@ -218,6 +218,73 @@ tr:hover {
     background: rgba(52, 152, 219, 0.05);
 }
 
+/* Block hash explorer links */
+.block-hash-link {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    font-size: 0.8rem;
+    color: #007bff !important;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.block-hash-link:hover {
+    color: #0056b3 !important;
+    background: rgba(0, 123, 255, 0.1);
+    text-decoration: underline;
+    transform: translateY(-1px);
+}
+
+.block-hash-link:active {
+    transform: translateY(0);
+}
+
+/* Peer connection styling */
+.peer-direction {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    display: inline-block;
+    text-align: center;
+    min-width: 80px;
+}
+
+.peer-direction.inbound {
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.peer-direction.outbound {
+    background: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+    border: 1px solid rgba(0, 123, 255, 0.3);
+}
+
+.peer-address {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.85rem;
+}
+
+.peer-version {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.peer-ping {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.85rem;
+    color: #28a745;
+}
+
+.peer-time {
+    font-size: 0.8rem;
+    color: #666;
+}
+
 .loading {
     text-align: center;
     color: #7f8c8d;

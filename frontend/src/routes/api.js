@@ -76,7 +76,10 @@ router.get('/health', async (req, res) => {
 router.get('/info', async (req, res) => {
     try {
         const rpc = initializeRPC();
-        const nodeInfo = await rpc.getNodeInfo();
+        const [nodeInfo, networkHashPS] = await Promise.all([
+            rpc.getNodeInfo(),
+            rpc.getNetworkHashPS(120).catch(() => null) // Get hash rate for last 120 blocks, fallback to null if fails
+        ]);
         
         // Format data for frontend compatibility (expected nested structure)
         const info = {
@@ -100,7 +103,8 @@ router.get('/info', async (req, res) => {
                 localservices: nodeInfo.network.localservices,
                 networkactive: nodeInfo.network.networkactive,
                 timeoffset: nodeInfo.network.timeoffset,
-                warnings: nodeInfo.network.warnings || ''
+                warnings: nodeInfo.network.warnings || '',
+                networkhashps: networkHashPS
             },
             mempool: {
                 size: nodeInfo.mempool.size,
