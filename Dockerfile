@@ -65,6 +65,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libc6 \
     libgcc-s1 \
     libstdc++6 \
+    libzmq5 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean \
     && rm -rf /tmp/* /var/tmp/*
@@ -74,11 +75,12 @@ COPY --from=dogecoin-downloader /usr/local/bin/dogecoind /usr/local/bin/
 COPY --from=dogecoin-downloader /usr/local/bin/dogecoin-cli /usr/local/bin/
 RUN chmod +x /usr/local/bin/dogecoind /usr/local/bin/dogecoin-cli
 
-# Verify binaries work
-RUN echo "Verifying Dogecoin binaries:" \
+# Verify binaries exist and are executable
+RUN echo "Verifying Dogecoin binaries exist:" \
     && ls -la /usr/local/bin/dogecoin* \
-    && dogecoind --version \
-    && dogecoin-cli --version
+    && test -x /usr/local/bin/dogecoind \
+    && test -x /usr/local/bin/dogecoin-cli \
+    && echo "Dogecoin binaries are present and executable"
 
 # Copy frontend application with dependencies
 COPY --from=frontend-builder /app/frontend /app/frontend

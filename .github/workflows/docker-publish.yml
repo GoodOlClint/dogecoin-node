@@ -51,7 +51,7 @@ jobs:
 
   build-and-push:
     needs: check-dogecoin-release
-    if: needs.check-dogecoin-release.outputs.should-build == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.check-dogecoin-release.outputs.should-build == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
