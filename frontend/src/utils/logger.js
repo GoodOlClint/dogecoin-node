@@ -6,7 +6,6 @@
 const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
-const config = require('../config');
 
 /**
  * Creates the main application logger with proper configuration
@@ -44,14 +43,16 @@ function createLogger() {
         })
     );
 
-    // File transports (only in production or when explicitly enabled)
-    if (config.server.nodeEnv === 'production' || process.env.ENABLE_FILE_LOGGING === 'true') {
+    // File transports (enabled in production or when explicitly requested)
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    if (nodeEnv === 'production' || process.env.ENABLE_FILE_LOGGING === 'true') {
+        // Combined log
         // Combined log
         transports.push(
             new winston.transports.File({
-                filename: path.join(config.logging.dir, 'combined.log'),
-                maxsize: config.logging.maxSize,
-                maxFiles: config.logging.maxFiles,
+                filename: path.join(logDir, 'combined.log'),
+                maxsize: 10485760, // 10MB
+                maxFiles: 5,
                 format: winston.format.combine(
                     winston.format.timestamp(),
                     winston.format.errors({ stack: true }),
@@ -63,10 +64,10 @@ function createLogger() {
         // Error log
         transports.push(
             new winston.transports.File({
-                filename: path.join(config.logging.dir, 'error.log'),
+                filename: path.join(logDir, 'error.log'),
                 level: 'error',
-                maxsize: config.logging.maxSize,
-                maxFiles: config.logging.maxFiles,
+                maxsize: 10485760, // 10MB
+                maxFiles: 5,
                 format: winston.format.combine(
                     winston.format.timestamp(),
                     winston.format.errors({ stack: true }),
@@ -77,7 +78,7 @@ function createLogger() {
     }
 
     return winston.createLogger({
-        level: config.server.logLevel,
+        level: process.env.LOG_LEVEL || 'info',
         format: winston.format.combine(
             winston.format.timestamp(),
             winston.format.errors({ stack: true }),
@@ -88,17 +89,17 @@ function createLogger() {
         // Handle uncaught exceptions and rejections
         exceptionHandlers: [
             new winston.transports.Console(),
-            ...(config.server.nodeEnv === 'production' ? [
+            ...(nodeEnv === 'production' ? [
                 new winston.transports.File({
-                    filename: path.join(config.logging.dir, 'exceptions.log')
+                    filename: path.join(logDir, 'exceptions.log')
                 })
             ] : [])
         ],
         rejectionHandlers: [
             new winston.transports.Console(),
-            ...(config.server.nodeEnv === 'production' ? [
+            ...(nodeEnv === 'production' ? [
                 new winston.transports.File({
-                    filename: path.join(config.logging.dir, 'rejections.log')
+                    filename: path.join(logDir, 'rejections.log')
                 })
             ] : [])
         ]
@@ -120,12 +121,12 @@ function createChildLogger(context = {}) {
 function logStartup() {
     logger.info('Starting Dogecoin Node Monitor', {
         version: require('../../package.json').version,
-        nodeEnv: config.server.nodeEnv,
-        port: config.server.port,
-        logLevel: config.server.logLevel,
-        rpcHost: config.rpc.host,
-        rpcPort: config.rpc.port,
-        watchdogEnabled: config.watchdog.enabled
+        nodeEnv: process.env.NODE_ENV || 'development',
+        port: process.env.PORT || 3000,
+        logLevel: process.env.LOG_LEVEL || 'info',
+        rpcHost: process.env.RPC_HOST || 'localhost',
+        rpcPort: process.env.RPC_PORT || 22555,
+        watchdogEnabled: process.env.WATCHDOG_ENABLED !== 'false'
     });
 }
 
