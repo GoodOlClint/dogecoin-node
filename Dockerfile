@@ -13,18 +13,29 @@ RUN apk add --no-cache \
 
 # Fetch latest Dogecoin release and download binaries
 WORKDIR /tmp
-RUN LATEST_RELEASE=$(curl -s https://api.github.com/repos/dogecoin/dogecoin/releases/latest | jq -r '.tag_name') \
-    && echo "Latest Dogecoin release: $LATEST_RELEASE" \
-    && RELEASE_VERSION=${LATEST_RELEASE#v} \
-    && DOWNLOAD_URL="https://github.com/dogecoin/dogecoin/releases/download/${LATEST_RELEASE}/dogecoin-${RELEASE_VERSION}-x86_64-linux-gnu.tar.gz" \
-    && echo "Downloading from: $DOWNLOAD_URL" \
-    && wget "$DOWNLOAD_URL" \
-    && tar -xzf "dogecoin-${RELEASE_VERSION}-x86_64-linux-gnu.tar.gz" \
-    && cp "dogecoin-${RELEASE_VERSION}/bin/dogecoind" /usr/local/bin/ \
-    && cp "dogecoin-${RELEASE_VERSION}/bin/dogecoin-cli" /usr/local/bin/ \
-    && chmod +x /usr/local/bin/dogecoind /usr/local/bin/dogecoin-cli \
-    && echo "Downloaded binaries for version $LATEST_RELEASE:" \
-    && ls -la /usr/local/bin/dogecoin*
+RUN set -e && \
+    echo "Fetching latest Dogecoin release..." && \
+    LATEST_RELEASE=$(curl -s --connect-timeout 30 --max-time 60 --retry 3 --retry-delay 5 \
+        https://api.github.com/repos/dogecoin/dogecoin/releases/latest | jq -r '.tag_name') && \
+    echo "Latest Dogecoin release: $LATEST_RELEASE" && \
+    if [ -z "$LATEST_RELEASE" ] || [ "$LATEST_RELEASE" = "null" ]; then \
+        echo "Failed to fetch latest release, using fallback version v1.14.7" && \
+        LATEST_RELEASE="v1.14.7"; \
+    fi && \
+    RELEASE_VERSION=${LATEST_RELEASE#v} && \
+    DOWNLOAD_URL="https://github.com/dogecoin/dogecoin/releases/download/${LATEST_RELEASE}/dogecoin-${RELEASE_VERSION}-x86_64-linux-gnu.tar.gz" && \
+    echo "Downloading from: $DOWNLOAD_URL" && \
+    wget --timeout=60 --tries=3 --waitretry=10 "$DOWNLOAD_URL" && \
+    echo "Download completed, extracting..." && \
+    tar -xzf "dogecoin-${RELEASE_VERSION}-x86_64-linux-gnu.tar.gz" && \
+    echo "Extraction completed, copying binaries..." && \
+    cp "dogecoin-${RELEASE_VERSION}/bin/dogecoind" /usr/local/bin/ && \
+    cp "dogecoin-${RELEASE_VERSION}/bin/dogecoin-cli" /usr/local/bin/ && \
+    chmod +x /usr/local/bin/dogecoind /usr/local/bin/dogecoin-cli && \
+    echo "Downloaded binaries for version $LATEST_RELEASE:" && \
+    ls -la /usr/local/bin/dogecoin* && \
+    echo "Cleaning up temporary files..." && \
+    rm -rf /tmp/*
 
 # Stage 2: Build frontend
 FROM node:18-alpine AS frontend-builder
