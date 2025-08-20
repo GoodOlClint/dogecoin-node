@@ -59,3 +59,16 @@ node_modules/
 
 # Yarn Integrity file
 .yarn-integrity
+
+# Security scan reports and artifacts
+*.sarif
+*-audit-results.json
+license-report.json
+jscpd-report.json
+trivy-results.*
+hadolint-results.*
+eslint-results.*
+
+# SonarCloud
+.sonarqube/
+.scannerwork/

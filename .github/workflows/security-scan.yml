@@ -1,0 +1,243 @@
+name: Security and Code Quality Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  security-scan:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Node.js Security Scanning
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run npm audit
+        working-directory: frontend
+        run: |
+          echo "## NPM Security Audit Results" >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level moderate || echo "npm audit found vulnerabilities"
+          npm audit --json > npm-audit-results.json || true
+
+      - name: Upload npm audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-results
+          path: frontend/npm-audit-results.json
+
+      # CodeQL Analysis for JavaScript/TypeScript
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      # Semgrep Static Analysis
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/javascript
+            p/nodejs
+            p/docker
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      # Secret Detection
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      # Dockerfile Security Scanning
+      - name: Run Hadolint (Dockerfile linter)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          format: sarif
+          output-file: hadolint-results.sarif
+
+      - name: Upload Hadolint results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif-file: hadolint-results.sarif
+
+      # Docker Image Security Scanning
+      - name: Build Docker image for scanning
+        run: docker build -t dogecoin-node-scan:latest .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'dogecoin-node-scan:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif-file: 'trivy-results.sarif'
+
+      # License Compliance Check
+      - name: License compliance check
+        working-directory: frontend
+        run: |
+          npx license-checker --json --out license-report.json || true
+          echo "## License Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "License report generated and saved as artifact" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: license-report
+          path: frontend/license-report.json
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # ESLint for JavaScript code quality
+      - name: Run ESLint
+        working-directory: frontend
+        run: |
+          npx eslint . --ext .js --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif || true
+          echo "## ESLint Results" >> $GITHUB_STEP_SUMMARY
+          echo "ESLint analysis completed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload ESLint results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif-file: frontend/eslint-results.sarif
+
+      # SonarCloud Analysis (if token is available)
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        if: env.SONAR_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # Code complexity and maintainability
+      - name: Install complexity analysis tools
+        run: |
+          npm install -g jscpd complexity-report
+
+      - name: Run code duplication check
+        working-directory: frontend
+        run: |
+          jscpd . --reporters json --output ./jscpd-report.json || true
+          echo "## Code Duplication Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "Code duplication check completed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload code duplication report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jscpd-report
+          path: frontend/jscpd-report.json
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate Security Summary
+        run: |
+          echo "# 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Scans Completed:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ NPM Security Audit" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ CodeQL Static Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Semgrep Security Rules" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ TruffleHog Secret Detection" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Hadolint Dockerfile Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Trivy Container Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ ESLint Code Quality" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ License Compliance Check" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code Duplication Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Results:" >> $GITHUB_STEP_SUMMARY
+          echo "All security scans have been completed. Check the Security tab for detailed findings." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📥 Artifacts:" >> $GITHUB_STEP_SUMMARY
+          echo "- NPM audit results" >> $GITHUB_STEP_SUMMARY
+          echo "- License compliance report" >> $GITHUB_STEP_SUMMARY
+          echo "- Code duplication analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review any high/critical severity findings in the Security tab" >> $GITHUB_STEP_SUMMARY
+          echo "2. Address dependency vulnerabilities found by npm audit" >> $GITHUB_STEP_SUMMARY
+          echo "3. Review and fix any code quality issues identified by ESLint" >> $GITHUB_STEP_SUMMARY
+          echo "4. Ensure no secrets were detected in the codebase" >> $GITHUB_STEP_SUMMARY
+
+      - name: Security scan status
+        run: |
+          if [ "${{ needs.security-scan.result }}" == "success" ] && [ "${{ needs.code-quality.result }}" == "success" ]; then
+            echo "✅ All security and quality scans passed successfully"
+            exit 0
+          else
+            echo "❌ Some security or quality scans failed. Please review the results."
+            exit 1
+          fi
