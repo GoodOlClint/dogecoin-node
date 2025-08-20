@@ -17,6 +17,13 @@ class DogecoinMonitor {
             mempoolSize: []
         };
         
+        // Watchdog state
+        this.watchdog = {
+            isMonitoring: false,
+            alerts: [],
+            status: 'UNKNOWN'
+        };
+        
         // Update UI to show initialization
         this.updateConnectionStatus('connecting', 'Initializing...');
         
@@ -62,7 +69,7 @@ class DogecoinMonitor {
         
         this.ws.onopen = () => {
             console.log('WebSocket connected successfully');
-            this.updateConnectionStatus(true);
+            this.updateConnectionStatus('connected');
         };
         
         this.ws.onmessage = (event) => {
@@ -70,14 +77,20 @@ class DogecoinMonitor {
             const message = JSON.parse(event.data);
             if (message.type === 'update') {
                 this.updateUI(message.data);
+                
+                // Handle watchdog data if present
+                if (message.data.watchdog) {
+                    this.updateWatchdogUI(message.data.watchdog);
+                }
+                
                 this.updateLastUpdate();
             }
         };
         
         this.ws.onclose = (event) => {
             console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-            this.updateConnectionStatus(false);
-            // Reconnect after 5 seconds
+            this.updateConnectionStatus('disconnected');
+            // Attempt to reconnect after delay
             setTimeout(() => this.connectWebSocket(), 5000);
         };
         
@@ -94,6 +107,11 @@ class DogecoinMonitor {
     updateConnectionStatus(status, message = null) {
         const statusElement = document.getElementById('connection-status');
         if (!statusElement) return;
+        
+        // Handle boolean parameters for backward compatibility
+        if (typeof status === 'boolean') {
+            status = status ? 'connected' : 'disconnected';
+        }
         
         const statusMap = {
             'connected': { text: 'Connected', class: 'status connected' },
@@ -120,19 +138,35 @@ class DogecoinMonitor {
     async loadInitialData() {
         try {
             console.log('Loading initial data via REST API...');
+            
             // Load basic info
+            console.log('Fetching /api/info...');
             const infoResponse = await fetch('/api/info');
+            if (!infoResponse.ok) {
+                throw new Error(`Info API failed: ${infoResponse.status} ${infoResponse.statusText}`);
+            }
             const info = await infoResponse.json();
+            console.log('Info data received:', info);
             this.updateUI(info);
             
             // Load blocks
+            console.log('Fetching /api/blocks/10...');
             const blocksResponse = await fetch('/api/blocks/10');
+            if (!blocksResponse.ok) {
+                throw new Error(`Blocks API failed: ${blocksResponse.status} ${blocksResponse.statusText}`);
+            }
             const blocks = await blocksResponse.json();
+            console.log('Blocks data received:', blocks.length, 'blocks');
             this.updateBlocksTable(blocks);
             
             // Load peers
+            console.log('Fetching /api/peers...');
             const peersResponse = await fetch('/api/peers');
+            if (!peersResponse.ok) {
+                throw new Error(`Peers API failed: ${peersResponse.status} ${peersResponse.statusText}`);
+            }
             const peers = await peersResponse.json();
+            console.log('Peers data received:', peers.length, 'peers');
             this.updatePeersTable(peers);
             
             // If WebSocket is not connected, show that we're getting data via REST API
@@ -149,6 +183,7 @@ class DogecoinMonitor {
             
         } catch (error) {
             console.error('Error loading initial data:', error);
+            console.error('Error stack:', error.stack);
             const statusElement = document.getElementById('connection-status');
             if (statusElement) {
                 statusElement.textContent = 'Connection Failed';
@@ -158,38 +193,43 @@ class DogecoinMonitor {
     }
     
     updateUI(data) {
-        if (data.blockchain) {
-            document.getElementById('block-height').textContent = 
-                data.blockchain.blocks.toLocaleString();
-            document.getElementById('difficulty').textContent = 
-                this.formatNumber(data.blockchain.difficulty);
-            document.getElementById('chain').textContent = data.blockchain.chain;
-            document.getElementById('size-on-disk').textContent = 
-                this.formatBytes(data.blockchain.size_on_disk);
+        try {
+            if (data.blockchain) {
+                document.getElementById('block-height').textContent = 
+                    data.blockchain.blocks.toLocaleString();
+                document.getElementById('difficulty').textContent = 
+                    this.formatNumber(data.blockchain.difficulty);
+                document.getElementById('chain').textContent = data.blockchain.chain;
+                document.getElementById('size-on-disk').textContent = 
+                    this.formatBytes(data.blockchain.size_on_disk);
+                
+                // Update sync progress
+                const syncProgress = ((data.blockchain.blocks / data.blockchain.headers) * 100).toFixed(2);
+                document.getElementById('sync-progress').textContent = `${syncProgress}%`;
+                
+                // Add data point for chart
+                this.addDataPoint('blockHeight', data.blockchain.blocks);
+            }
             
-            // Update sync progress
-            const syncProgress = ((data.blockchain.blocks / data.blockchain.headers) * 100).toFixed(2);
-            document.getElementById('sync-progress').textContent = `${syncProgress}%`;
+            if (data.network) {
+                document.getElementById('connections').textContent = data.network.connections;
+                document.getElementById('node-version').textContent = data.network.subversion;
+                document.getElementById('protocol-version').textContent = data.network.protocolversion;
+            }
             
-            // Add data point for chart
-            this.addDataPoint('blockHeight', data.blockchain.blocks);
-        }
-        
-        if (data.network) {
-            document.getElementById('connections').textContent = data.network.connections;
-            document.getElementById('node-version').textContent = data.network.subversion;
-            document.getElementById('protocol-version').textContent = data.network.protocolversion;
-        }
-        
-        if (data.mempool) {
-            document.getElementById('mempool-size').textContent = 
-                data.mempool.size.toLocaleString();
+            if (data.mempool) {
+                document.getElementById('mempool-size').textContent = 
+                    data.mempool.size.toLocaleString();
+                
+                // Add data point for chart
+                this.addDataPoint('mempoolSize', data.mempool.size);
+            }
             
-            // Add data point for chart
-            this.addDataPoint('mempoolSize', data.mempool.size);
+            this.updateCharts();
+        } catch (error) {
+            console.error('Error updating UI:', error);
+            throw error; // Re-throw so the calling function can handle it
         }
-        
-        this.updateCharts();
     }
     
     addDataPoint(series, value) {
@@ -203,7 +243,7 @@ class DogecoinMonitor {
         });
         
         // Keep only last N data points
-        if (this.data[series].length > this.maxDataPoints) {
+        if (this.data[series].length > this.config.maxDataPoints) {
             this.data[series].shift();
         }
     }
@@ -348,6 +388,265 @@ class DogecoinMonitor {
         });
     }
     
+    // Watchdog-related methods
+    updateWatchdogUI(watchdogData) {
+        try {
+            console.log('Updating watchdog UI:', watchdogData);
+            
+            // Update watchdog state
+            this.watchdog = {
+                ...this.watchdog,
+                ...watchdogData
+            };
+            
+            // Update security status card
+            this.updateSecurityStatusCard(watchdogData);
+            
+            // Update security alerts banner
+            this.updateSecurityBanner(watchdogData);
+            
+            // Update security monitoring section
+            this.updateSecuritySection(watchdogData);
+            
+        } catch (error) {
+            console.error('Error updating watchdog UI:', error);
+        }
+    }
+    
+    updateSecurityStatusCard(watchdogData) {
+        const statusElement = document.getElementById('watchdog-status');
+        const detailsElement = document.getElementById('watchdog-details');
+        const cardElement = document.getElementById('watchdog-card');
+        
+        if (!statusElement || !detailsElement || !cardElement) return;
+        
+        // Remove existing alert classes
+        cardElement.classList.remove('alert', 'warning', 'normal');
+        
+        if (watchdogData.status === 'CRITICAL_ALERT') {
+            statusElement.textContent = 'ALERT';
+            statusElement.style.color = '#e74c3c';
+            detailsElement.textContent = `${watchdogData.alertCount} Critical Alerts`;
+            cardElement.classList.add('alert');
+        } else if (watchdogData.alertCount > 0) {
+            statusElement.textContent = 'Warning';
+            statusElement.style.color = '#f39c12';
+            detailsElement.textContent = `${watchdogData.alertCount} Active Alerts`;
+            cardElement.classList.add('warning');
+        } else {
+            statusElement.textContent = 'Secure';
+            statusElement.style.color = '#27ae60';
+            detailsElement.textContent = 'No Threats Detected';
+            cardElement.classList.add('normal');
+        }
+    }
+    
+    updateSecurityBanner(watchdogData) {
+        const bannerSection = document.getElementById('security-alerts');
+        const alertSummary = document.getElementById('alert-summary');
+        
+        if (!bannerSection || !alertSummary) return;
+        
+        if (watchdogData.status === 'CRITICAL_ALERT' && watchdogData.recentAlerts.length > 0) {
+            const criticalAlert = watchdogData.recentAlerts.find(alert => alert.severity === 'CRITICAL');
+            if (criticalAlert) {
+                alertSummary.textContent = criticalAlert.message;
+                bannerSection.style.display = 'block';
+            }
+        } else {
+            bannerSection.style.display = 'none';
+        }
+    }
+    
+    updateSecuritySection(watchdogData) {
+        // Update monitoring status badge
+        const statusBadge = document.getElementById('watchdog-monitoring-status');
+        if (statusBadge) {
+            if (watchdogData.isMonitoring) {
+                statusBadge.textContent = 'Monitoring';
+                statusBadge.className = 'status-badge monitoring';
+            } else {
+                statusBadge.textContent = 'Stopped';
+                statusBadge.className = 'status-badge stopped';
+            }
+        }
+        
+        // Update alert count
+        const alertCount = document.getElementById('alert-count');
+        if (alertCount) {
+            const count = watchdogData.alertCount || 0;
+            alertCount.textContent = count === 0 ? 'No alerts' : 
+                                    count === 1 ? '1 alert' : `${count} alerts`;
+        }
+        
+        // Update alerts list
+        this.updateAlertsList(watchdogData.recentAlerts || []);
+    }
+    
+    updateAlertsList(alerts) {
+        const noAlertsDiv = document.getElementById('no-alerts');
+        const alertsList = document.getElementById('alerts-list');
+        
+        if (!noAlertsDiv || !alertsList) return;
+        
+        if (alerts.length === 0) {
+            noAlertsDiv.style.display = 'block';
+            alertsList.style.display = 'none';
+        } else {
+            noAlertsDiv.style.display = 'none';
+            alertsList.style.display = 'block';
+            
+            alertsList.innerHTML = alerts.map(alert => this.createAlertHTML(alert)).join('');
+        }
+    }
+    
+    createAlertHTML(alert) {
+        const timeAgo = this.timeAgo(new Date(alert.timestamp));
+        const severityClass = alert.severity.toLowerCase();
+        
+        return `
+            <div class="alert-item ${severityClass}" data-alert-id="${alert.id}">
+                <div class="alert-header">
+                    <span class="alert-type">${alert.type.replace(/_/g, ' ')}</span>
+                    <span class="alert-time">${timeAgo}</span>
+                </div>
+                <div class="alert-message">${alert.message}</div>
+                <div class="alert-actions">
+                    ${!alert.acknowledged ? 
+                        `<button class="acknowledge-btn" onclick="window.dogecoinMonitor.acknowledgeAlert(${alert.id})">
+                            Acknowledge
+                        </button>` : 
+                        '<span class="acknowledged">✓ Acknowledged</span>'
+                    }
+                    <button class="details-btn" onclick="window.dogecoinMonitor.showAlertDetails(${alert.id})">
+                        Details
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    async acknowledgeAlert(alertId) {
+        try {
+            const response = await fetch(`/api/watchdog/alerts/${alertId}/acknowledge`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                console.log('Alert acknowledged successfully');
+                // Refresh alerts
+                await this.refreshWatchdogData();
+            } else {
+                console.error('Failed to acknowledge alert');
+            }
+        } catch (error) {
+            console.error('Error acknowledging alert:', error);
+        }
+    }
+    
+    showAlertDetails(alertId) {
+        // Look for the alert in recentAlerts first, then in alerts
+        let alert = null;
+        
+        if (this.watchdog.recentAlerts) {
+            alert = this.watchdog.recentAlerts.find(a => a.id === alertId);
+        }
+        
+        if (!alert && this.watchdog.alerts) {
+            alert = this.watchdog.alerts.find(a => a.id === alertId);
+        }
+        
+        if (alert) {
+            // Create a more user-friendly modal instead of alert()
+            this.showAlertModal(alert);
+        } else {
+            console.error('Alert not found:', alertId);
+            alert('Alert details not available');
+        }
+    }
+    
+    showAlertModal(alert) {
+        // Create modal HTML
+        const modalHTML = `
+            <div class="alert-modal-overlay" onclick="this.remove()">
+                <div class="alert-modal" onclick="event.stopPropagation()">
+                    <div class="alert-modal-header">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Security Alert Details</h3>
+                        <button class="alert-modal-close" onclick="this.closest('.alert-modal-overlay').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="alert-modal-body">
+                        <div class="alert-detail-row">
+                            <strong>Type:</strong> ${alert.type}
+                        </div>
+                        <div class="alert-detail-row">
+                            <strong>Severity:</strong> 
+                            <span class="severity-badge severity-${alert.severity.toLowerCase()}">${alert.severity}</span>
+                        </div>
+                        <div class="alert-detail-row">
+                            <strong>Time:</strong> ${new Date(alert.timestamp).toLocaleString()}
+                        </div>
+                        <div class="alert-detail-row">
+                            <strong>Message:</strong> ${alert.message}
+                        </div>
+                        ${alert.data ? `
+                        <div class="alert-detail-row">
+                            <strong>Technical Details:</strong>
+                            <pre class="alert-data">${JSON.stringify(alert.data, null, 2)}</pre>
+                        </div>
+                        ` : ''}
+                        ${alert.description ? `
+                        <div class="alert-detail-row">
+                            <strong>Description:</strong> ${alert.description}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="alert-modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.alert-modal-overlay').remove()">
+                            Close
+                        </button>
+                        ${!alert.acknowledged ? `
+                        <button class="btn btn-primary" onclick="window.dogecoinMonitor.acknowledgeAlert(${alert.id}); this.closest('.alert-modal-overlay').remove();">
+                            Acknowledge Alert
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    async refreshWatchdogData() {
+        try {
+            const response = await fetch('/api/watchdog/status');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateWatchdogUI(result.data);
+            }
+        } catch (error) {
+            console.error('Error refreshing watchdog data:', error);
+        }
+    }
+    
+    timeAgo(date) {
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return `${diffDays}d ago`;
+    }
+    
+    // Utility methods
     formatBytes(bytes) {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -365,9 +664,30 @@ class DogecoinMonitor {
     }
 }
 
+// Global functions for UI interactions
+function dismissSecurityBanner() {
+    const banner = document.getElementById('security-alerts');
+    if (banner) {
+        banner.style.display = 'none';
+    }
+}
+
 // Initialize the monitor when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing Dogecoin Monitor...');
     window.dogecoinMonitor = new DogecoinMonitor();
     console.log('Dogecoin Monitor initialized');
+    
+    // Set up watchdog control event listeners
+    const refreshButton = document.getElementById('refresh-alerts');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+            window.dogecoinMonitor.refreshWatchdogData();
+        });
+    }
+    
+    // Load initial watchdog data
+    setTimeout(() => {
+        window.dogecoinMonitor.refreshWatchdogData();
+    }, 2000);
 });
