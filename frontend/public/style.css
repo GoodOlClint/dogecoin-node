@@ -321,3 +321,545 @@ canvas {
 .warning {
     color: #f39c12;
 }
+
+/* Security Watchdog Styles */
+.security-alerts-section {
+    margin: 1rem 2rem 0;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.alert-banner {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
+    color: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 4px 20px rgba(231, 76, 60, 0.3);
+    animation: alertPulse 2s ease-in-out infinite;
+}
+
+.alert-banner.critical {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
+}
+
+.alert-banner.high {
+    background: linear-gradient(45deg, #f39c12, #e67e22);
+}
+
+.alert-banner.medium {
+    background: linear-gradient(45deg, #f39c12, #d68910);
+}
+
+.alert-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.alert-content i {
+    font-size: 1.5rem;
+    animation: alertFlash 1s ease-in-out infinite;
+}
+
+.alert-text {
+    flex: 1;
+}
+
+.alert-text strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.alert-dismiss {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.alert-dismiss:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes alertPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.01); }
+}
+
+@keyframes alertFlash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.security-section {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.watchdog-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-small {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s;
+}
+
+.btn-small:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.monitoring {
+    background: #27ae60;
+    color: white;
+}
+
+.status-badge.stopped {
+    background: #e74c3c;
+    color: white;
+}
+
+.status-badge.alert {
+    background: #f39c12;
+    color: white;
+    animation: alertPulse 1s ease-in-out infinite;
+}
+
+.security-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.security-metric {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.metric-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.metric-icon.hash-rate {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.metric-icon.difficulty {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+.metric-icon.network {
+    background: linear-gradient(135deg, #1abc9c, #16a085);
+}
+
+.metric-info .metric-label {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    margin-bottom: 0.25rem;
+}
+
+.metric-info .metric-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.alerts-container {
+    min-height: 200px;
+}
+
+.no-alerts {
+    text-align: center;
+    padding: 2rem;
+    color: #7f8c8d;
+}
+
+.no-alerts i {
+    font-size: 3rem;
+    color: #27ae60;
+    margin-bottom: 1rem;
+}
+
+.alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.alert-item {
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s;
+}
+
+.alert-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.alert-item.critical {
+    border-left-color: #e74c3c;
+    background: linear-gradient(90deg, rgba(231, 76, 60, 0.05), white);
+}
+
+.alert-item.high {
+    border-left-color: #f39c12;
+    background: linear-gradient(90deg, rgba(243, 156, 18, 0.05), white);
+}
+
+.alert-item.medium {
+    border-left-color: #f1c40f;
+    background: linear-gradient(90deg, rgba(241, 196, 15, 0.05), white);
+}
+
+.alert-item.low {
+    border-left-color: #3498db;
+    background: linear-gradient(90deg, rgba(52, 152, 219, 0.05), white);
+}
+
+.alert-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.alert-type {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.alert-time {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.alert-message {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+}
+
+.alert-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.alert-actions button {
+    padding: 0.25rem 0.75rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s;
+}
+
+.acknowledge-btn {
+    background: #27ae60;
+    color: white;
+}
+
+.acknowledge-btn:hover {
+    background: #229954;
+}
+
+.details-btn {
+    background: #3498db;
+    color: white;
+}
+
+.details-btn:hover {
+    background: #2980b9;
+}
+
+/* Security status in overview card */
+#watchdog-card {
+    position: relative;
+}
+
+#watchdog-card.alert {
+    border-left: 4px solid #e74c3c;
+    animation: cardAlert 2s ease-in-out infinite;
+}
+
+#watchdog-card.warning {
+    border-left: 4px solid #f39c12;
+}
+
+#watchdog-card.normal {
+    border-left: 4px solid #27ae60;
+}
+
+@keyframes cardAlert {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+/* Responsive adjustments for security section */
+@media (max-width: 768px) {
+    .security-metrics {
+        grid-template-columns: 1fr;
+    }
+    
+    .security-metric {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .watchdog-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .alert-content {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+/* Alert Modal Styles */
+.alert-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.alert-modal {
+    background: white;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.alert-modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
+    color: white;
+    border-radius: 12px 12px 0 0;
+}
+
+.alert-modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.alert-modal-header h3 i {
+    margin-right: 0.5rem;
+    color: #fff;
+}
+
+.alert-modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.alert-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.alert-modal-body {
+    padding: 1.5rem;
+}
+
+.alert-detail-row {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.alert-detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.alert-detail-row strong {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.severity-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.severity-badge.severity-critical {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.severity-badge.severity-high {
+    background: linear-gradient(45deg, #f39c12, #e67e22);
+    color: white;
+}
+
+.severity-badge.severity-medium {
+    background: linear-gradient(45deg, #f1c40f, #f39c12);
+    color: #2c3e50;
+}
+
+.severity-badge.severity-low {
+    background: linear-gradient(45deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.alert-data {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.875rem;
+    color: #495057;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.alert-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    background: #f8f9fa;
+    border-radius: 0 0 12px 12px;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #3498db, #2980b9);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #2980b9, #2471a3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+@media (max-width: 768px) {
+    .alert-modal {
+        width: 95%;
+        margin: 1rem;
+    }
+    
+    .alert-modal-header {
+        padding: 1rem;
+    }
+    
+    .alert-modal-body {
+        padding: 1rem;
+    }
+    
+    .alert-modal-footer {
+        padding: 1rem;
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}
