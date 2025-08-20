@@ -42,6 +42,7 @@ const createRateLimiter = (options = {}) => {
 const apiRateLimit = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // 100 requests per window
+    trustProxy: false, // Explicitly set for security
     message: {
         error: 'RATE_LIMITED',
         message: 'Too many API requests, please try again later',
@@ -55,6 +56,7 @@ const apiRateLimit = createRateLimiter({
 const strictRateLimit = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10, // 10 requests per window
+    trustProxy: false, // Explicitly set for security
     message: {
         error: 'RATE_LIMITED',
         message: 'Too many requests for this operation, please try again later',
