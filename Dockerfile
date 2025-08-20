@@ -38,7 +38,7 @@ RUN set -e && \
     rm -rf /tmp/*
 
 # Stage 2: Build frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
@@ -46,15 +46,13 @@ RUN npm install --only=production && npm cache clean --force
 COPY frontend/ .
 
 # Stage 3: Runtime image
-FROM ubuntu:22.04
+FROM node:24-bullseye-slim
 
-# Install only essential runtime dependencies
+# Install only essential runtime dependencies for Dogecoin
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    nodejs \
-    npm \
-    libssl3 \
+    libssl1.1 \
     libevent-2.1-7 \
     libboost-system1.74.0 \
     libboost-filesystem1.74.0 \
@@ -67,8 +65,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libstdc++6 \
     libzmq5 \
     && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean \
-    && rm -rf /tmp/* /var/tmp/*
+    && apt-get clean
 
 # Copy Dogecoin binaries from downloader stage
 COPY --from=dogecoin-downloader /usr/local/bin/dogecoind /usr/local/bin/
