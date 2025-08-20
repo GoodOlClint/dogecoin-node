@@ -70,6 +70,55 @@ router.get('/health', async (req, res) => {
 });
 
 /**
+ * GET /api/info
+ * Returns basic node information for the frontend
+ */
+router.get('/info', async (req, res) => {
+    try {
+        const rpc = initializeRPC();
+        const nodeInfo = await rpc.getNodeInfo();
+        
+        // Format data for frontend compatibility (expected nested structure)
+        const info = {
+            blockchain: {
+                blocks: nodeInfo.blockchain.blocks,
+                headers: nodeInfo.blockchain.headers,
+                bestblockhash: nodeInfo.blockchain.bestblockhash,
+                difficulty: nodeInfo.blockchain.difficulty,
+                mediantime: nodeInfo.blockchain.mediantime,
+                verificationprogress: nodeInfo.blockchain.verificationprogress,
+                chainwork: nodeInfo.blockchain.chainwork,
+                size_on_disk: nodeInfo.blockchain.size_on_disk,
+                chain: nodeInfo.blockchain.chain,
+                warnings: nodeInfo.blockchain.warnings || ''
+            },
+            network: {
+                version: nodeInfo.network.version,
+                subversion: nodeInfo.network.subversion,
+                protocolversion: nodeInfo.network.protocolversion,
+                connections: nodeInfo.network.connections,
+                localservices: nodeInfo.network.localservices,
+                networkactive: nodeInfo.network.networkactive,
+                timeoffset: nodeInfo.network.timeoffset,
+                warnings: nodeInfo.network.warnings || ''
+            },
+            mempool: {
+                size: nodeInfo.mempool.size,
+                bytes: nodeInfo.mempool.bytes,
+                usage: nodeInfo.mempool.usage,
+                maxmempool: nodeInfo.mempool.maxmempool,
+                mempoolminfee: nodeInfo.mempool.mempoolminfee
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        res.json(info);
+    } catch (error) {
+        handleAPIError(res, error, 'Info retrieval');
+    }
+});
+
+/**
  * GET /api/status
  * Returns comprehensive status of the Dogecoin node
  */
@@ -154,16 +203,56 @@ router.get('/peers', async (req, res) => {
         const rpc = initializeRPC();
         const peerInfo = await rpc.call('getpeerinfo');
         
-        res.json({
-            status: 'success',
-            timestamp: new Date().toISOString(),
-            data: {
-                count: peerInfo.length,
-                peers: peerInfo
-            }
-        });
+        // Return peers array directly for frontend compatibility
+        res.json(peerInfo);
     } catch (error) {
         handleAPIError(res, error, 'Peer info retrieval');
+    }
+});
+
+/**
+ * GET /api/blocks/:count
+ * Returns information about recent blocks
+ */
+router.get('/blocks/:count', async (req, res) => {
+    try {
+        const count = parseInt(req.params.count);
+        
+        if (isNaN(count) || count < 1 || count > 100) {
+            return res.status(400).json({
+                error: 'INVALID_PARAMETER',
+                message: 'Block count must be a number between 1 and 100'
+            });
+        }
+        
+        const rpc = initializeRPC();
+        const bestBlockHash = await rpc.call('getbestblockhash');
+        const currentHeight = await rpc.call('getblockcount');
+        
+        const blocks = [];
+        
+        // Get the requested number of recent blocks
+        for (let i = 0; i < count; i++) {
+            const height = currentHeight - i;
+            if (height < 0) break;
+            
+            const blockHash = await rpc.call('getblockhash', [height]);
+            const block = await rpc.call('getblock', [blockHash]);
+            
+            blocks.push({
+                height: block.height,
+                hash: block.hash,
+                time: block.time,
+                mediantime: block.mediantime,
+                size: block.size,
+                tx_count: block.tx.length,
+                difficulty: block.difficulty
+            });
+        }
+        
+        res.json(blocks);
+    } catch (error) {
+        handleAPIError(res, error, `Recent blocks retrieval for count: ${req.params.count}`);
     }
 });
 
