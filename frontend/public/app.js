@@ -169,6 +169,10 @@ class DogecoinMonitor {
             console.log('Peers data received:', peers.length, 'peers');
             this.updatePeersTable(peers);
             
+            // Load watchdog data
+            console.log('Fetching watchdog data...');
+            await this.refreshWatchdogData();
+            
             // If WebSocket is not connected, show that we're getting data via REST API
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
                 const statusElement = document.getElementById('connection-status');
@@ -513,12 +517,12 @@ class DogecoinMonitor {
                 <div class="alert-message">${alert.message}</div>
                 <div class="alert-actions">
                     ${!alert.acknowledged ? 
-                        `<button class="acknowledge-btn" onclick="window.dogecoinMonitor.acknowledgeAlert(${alert.id})">
+                        `<button class="acknowledge-btn" onclick="window.dogecoinMonitor.acknowledgeAlert('${alert.id}')">
                             Acknowledge
                         </button>` : 
                         '<span class="acknowledged">✓ Acknowledged</span>'
                     }
-                    <button class="details-btn" onclick="window.dogecoinMonitor.showAlertDetails(${alert.id})">
+                    <button class="details-btn" onclick="window.dogecoinMonitor.showAlertDetails('${alert.id}')">
                         Details
                     </button>
                 </div>
@@ -607,7 +611,7 @@ class DogecoinMonitor {
                             Close
                         </button>
                         ${!alert.acknowledged ? `
-                        <button class="btn btn-primary" onclick="window.dogecoinMonitor.acknowledgeAlert(${alert.id}); this.closest('.alert-modal-overlay').remove();">
+                        <button class="btn btn-primary" onclick="window.dogecoinMonitor.acknowledgeAlert('${alert.id}'); this.closest('.alert-modal-overlay').remove();">
                             Acknowledge Alert
                         </button>
                         ` : ''}
@@ -625,7 +629,7 @@ class DogecoinMonitor {
             const response = await fetch('/api/watchdog/status');
             const result = await response.json();
             
-            if (result.success) {
+            if (result.status === 'success') {
                 this.updateWatchdogUI(result.data);
             }
         } catch (error) {
