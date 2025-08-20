@@ -14,7 +14,7 @@ const logger = createChildLogger({ service: 'security-middleware' });
 const createRateLimiter = (options = {}) => {
     const defaults = {
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100, // limit each IP to 100 requests per windowMs
+        max: 500, // increased from 100 to 500 requests per windowMs
         message: {
             error: 'RATE_LIMITED',
             message: 'Too many requests from this IP, please try again later',
@@ -41,8 +41,8 @@ const createRateLimiter = (options = {}) => {
  */
 const apiRateLimit = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per window
-    trustProxy: false, // Explicitly set for security
+    max: 500, // increased from 100 to 500 requests per window
+    trustProxy: 1, // Trust first proxy (Docker network)
     message: {
         error: 'RATE_LIMITED',
         message: 'Too many API requests, please try again later',
