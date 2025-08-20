@@ -1,628 +1,519 @@
+/**
+ * Dogecoin Node Monitoring Server
+ * Enhanced with modular architecture for maintainability
+ */
+
 const express = require('express');
-const axios = require('axios');
 const cors = require('cors');
 const WebSocket = require('ws');
 const path = require('path');
-const fs = require('fs');
-const winston = require('winston');
-const DogecoinWatchdog = require('./watchdog');
+const http = require('http');
 
-// Configure Winston logger
-const logger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'info',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.errors({ stack: true }),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'dogecoin-monitor' },
-    transports: [
-        // Write all logs to console in development
-        new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.simple(),
-                winston.format.printf(({ level, message, timestamp, stack }) => {
-                    return `${timestamp} [${level}]: ${stack || message}`;
-                })
-            )
-        }),
-        // Write all logs to a combined log file
-        new winston.transports.File({ 
-            filename: '/app/logs/combined.log',
-            maxsize: 10 * 1024 * 1024, // 10MB
-            maxFiles: 5
-        }),
-        // Write error logs to a separate file
-        new winston.transports.File({ 
-            filename: '/app/logs/error.log', 
-            level: 'error',
-            maxsize: 10 * 1024 * 1024, // 10MB
-            maxFiles: 5
-        })
-    ]
-});
+// Import modular components
+const config = require('./src/config');
+const { logger, createChildLogger } = require('./src/utils/logger');
+const { DogecoinRPCService } = require('./src/services/rpc');
+const DogecoinWatchdog = require('./src/services/watchdog');
 
-// Create logs directory if it doesn't exist
-if (!fs.existsSync('/app/logs')) {
-    fs.mkdirSync('/app/logs', { recursive: true });
-}
+// Import routes
+const apiRoutes = require('./src/routes/api');
+const { router: watchdogRoutes, initializeWatchdog } = require('./src/routes/watchdog');
 
+// Import middleware
+const { 
+    errorHandler, 
+    notFoundHandler, 
+    asyncHandler, 
+    requestTimeout 
+} = require('./src/middleware/errorHandler');
+const { 
+    securityHeaders, 
+    validateInput, 
+    requestLogger, 
+    corsHandler, 
+    healthCheckBypass 
+} = require('./src/middleware/security');
+
+// Create child logger for server
+const serverLogger = createChildLogger({ service: 'server' });
+
+/**
+ * Application State and Services
+ */
 const app = express();
-const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
 
-// Log application startup
-logger.info('Starting Dogecoin Node Monitor', {
-    port: PORT,
-    nodeEnv: process.env.NODE_ENV || 'development',
-    logLevel: process.env.LOG_LEVEL || 'info'
-});
+// Services
+let rpcService;
+let watchdog;
+let wss; // WebSocket server
 
-// Dogecoin RPC configuration
-const RPC_CONFIG = {
-    host: process.env.DOGECOIN_RPC_HOST || 'localhost',
-    port: process.env.DOGECOIN_RPC_PORT || 22555,
-    cookiePath: process.env.DOGECOIN_COOKIE_PATH || '/data/.cookie'
-};
-
-const rpcUrl = `http://${RPC_CONFIG.host}:${RPC_CONFIG.port}`;
-
-logger.info('RPC Configuration', {
-    host: RPC_CONFIG.host,
-    port: RPC_CONFIG.port,
-    cookiePath: RPC_CONFIG.cookiePath,
-    rpcUrl: rpcUrl
-});
-
-// Function to read RPC cookie
-function getRPCAuth() {
+/**
+ * Initialize Application Services
+ */
+async function initializeServices() {
     try {
-        if (fs.existsSync(RPC_CONFIG.cookiePath)) {
-            const cookie = fs.readFileSync(RPC_CONFIG.cookiePath, 'utf8').trim();
-            const [username, password] = cookie.split(':');
-            logger.debug('RPC cookie authentication loaded', { username: username });
-            return { username, password };
+        serverLogger.info('🚀 Initializing services...');
+
+        // Initialize RPC service
+        rpcService = new DogecoinRPCService();
+        
+        // Test RPC connection
+        const isConnected = await rpcService.testConnection();
+        if (!isConnected) {
+            serverLogger.warn('⚠️ Dogecoin RPC connection test failed, continuing anyway...');
         } else {
-            logger.warn('RPC cookie file not found, using fallback credentials', {
-                cookiePath: RPC_CONFIG.cookiePath
-            });
-            return {
-                username: process.env.DOGECOIN_RPC_USER || 'dogecoin',
-                password: process.env.DOGECOIN_RPC_PASS || 'SecureDogePassword123!'
-            };
+            serverLogger.info('✅ Dogecoin RPC connection established');
         }
+
+        // Initialize watchdog service
+        watchdog = new DogecoinWatchdog(rpcService);
+        
+        // Initialize watchdog routes with the service
+        initializeWatchdog(watchdog);
+
+        serverLogger.info('✅ All services initialized successfully');
+        return true;
+
     } catch (error) {
-        logger.error('Error reading RPC cookie', { 
-            error: error.message,
-            cookiePath: RPC_CONFIG.cookiePath
-        });
-        return {
-            username: process.env.DOGECOIN_RPC_USER || 'dogecoin',
-            password: process.env.DOGECOIN_RPC_PASS || 'SecureDogePassword123!'
-        };
+        serverLogger.error('❌ Failed to initialize services', { error: error.message });
+        throw error;
     }
 }
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+/**
+ * Configure Express Application
+ */
+function configureApp() {
+    serverLogger.info('🔧 Configuring Express application...');
 
-// Enhanced request logging middleware
-app.use((req, res, next) => {
-    const start = Date.now();
-    
-    // Log the incoming request
-    logger.info('Incoming request', {
-        method: req.method,
-        url: req.url,
-        userAgent: req.get('User-Agent'),
-        ip: req.ip,
-        timestamp: new Date().toISOString()
-    });
-    
-    // Log the response when it finishes
-    res.on('finish', () => {
-        const duration = Date.now() - start;
-        logger.info('Request completed', {
-            method: req.method,
-            url: req.url,
-            statusCode: res.statusCode,
-            duration: `${duration}ms`,
-            timestamp: new Date().toISOString()
-        });
-    });
-    
-    next();
-});
+    // Trust proxy for accurate IP addresses
+    app.set('trust proxy', true);
 
-// Initialize Dogecoin Watchdog with dynamic RPC auth
-const watchdogConfig = {
-    host: RPC_CONFIG.host,
-    port: RPC_CONFIG.port,
-    // Pass a function to get auth dynamically
-    getAuth: getRPCAuth
-};
+    // Request timeout
+    app.use(requestTimeout(config.server.requestTimeout));
 
-const watchdog = new DogecoinWatchdog(watchdogConfig, logger);
+    // Security headers
+    app.use(securityHeaders);
 
-// Start watchdog monitoring
-setTimeout(async () => {
-    try {
-        await watchdog.startMonitoring();
-        logger.info('🔍 Dogecoin security watchdog activated');
-    } catch (error) {
-        logger.error('Failed to start watchdog:', error);
-    }
-}, 10000); // Wait 10 seconds for node to be ready
+    // CORS handling
+    app.use(corsHandler);
 
-// RPC call helper function with improved error handling and logging
-async function rpcCall(method, params = []) {
-    const startTime = Date.now();
-    
-    try {
-        logger.debug('Making RPC call', { 
-            method: method, 
-            params: params,
-            rpcUrl: rpcUrl
-        });
-        
-        const auth = getRPCAuth();
-        const response = await axios.post(rpcUrl, {
-            jsonrpc: '1.0',
-            id: 'dogecoin-monitor',
-            method: method,
-            params: params
-        }, {
-            auth: {
-                username: auth.username,
-                password: auth.password
-            },
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            timeout: 10000 // 10 second timeout
-        });
-        
-        const duration = Date.now() - startTime;
-        logger.debug('RPC call successful', { 
-            method: method, 
-            duration: `${duration}ms`,
-            responseSize: JSON.stringify(response.data).length
-        });
-        
-        return response.data.result;
-    } catch (error) {
-        const duration = Date.now() - startTime;
-        logger.error('RPC call failed', { 
-            method: method,
-            params: params,
-            duration: `${duration}ms`,
-            error: error.message,
-            status: error.response && error.response.status,
-            statusText: error.response && error.response.statusText
-        });
-        throw new Error(`RPC ${method} failed: ${error.message}`);
-    }
+    // Request logging
+    app.use(requestLogger);
+
+    // Input validation
+    app.use(validateInput);
+
+    // Rate limiting with health check bypass
+    app.use(healthCheckBypass);
+
+    // Parse JSON bodies
+    app.use(express.json({ limit: '1mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+    // Serve static files
+    app.use(express.static(path.join(__dirname, 'public')));
+
+    serverLogger.info('✅ Express application configured');
 }
 
-// Unified API endpoint with better error handling and logging
-app.get('/api/info', async (req, res) => {
-    const startTime = Date.now();
-    logger.info('API request: /api/info', { ip: req.ip });
-    
-    try {
-        const [blockchain, network, mempool] = await Promise.all([
-            rpcCall('getblockchaininfo'),
-            rpcCall('getnetworkinfo'),
-            rpcCall('getmempoolinfo')
-        ]);
-        
-        const responseData = {
-            blockchain,
-            network,
-            mempool,
-            timestamp: new Date().toISOString()
-        };
-        
-        const duration = Date.now() - startTime;
-        logger.info('API response: /api/info successful', { 
-            duration: `${duration}ms`,
-            blockHeight: blockchain.blocks,
-            connections: network.connections,
-            mempoolSize: mempool.size
-        });
-        
-        res.json(responseData);
-    } catch (error) {
-        const duration = Date.now() - startTime;
-        logger.error('API error: /api/info failed', { 
-            duration: `${duration}ms`,
-            error: error.message,
-            ip: req.ip
-        });
-        res.status(500).json({ 
-            error: 'Failed to fetch node information',
-            details: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+/**
+ * Configure Routes
+ */
+function configureRoutes() {
+    serverLogger.info('🛣️ Configuring routes...');
 
-app.get('/api/peers', async (req, res) => {
-    logger.info('API request: /api/peers', { ip: req.ip });
-    try {
-        const peers = await rpcCall('getpeerinfo');
-        logger.info('API response: /api/peers successful', { peerCount: peers.length });
-        res.json(peers);
-    } catch (error) {
-        logger.error('API error: /api/peers failed', { error: error.message, ip: req.ip });
-        res.status(500).json({ error: error.message });
-    }
-});
+    // API routes
+    app.use('/api', apiRoutes);
+    app.use('/api/watchdog', watchdogRoutes);
 
-app.get('/api/blocks/:count?', async (req, res) => {
-    const count = parseInt(req.params.count) || 10;
-    logger.info('API request: /api/blocks', { ip: req.ip, count: count });
-    try {
-        const bestBlockHash = await rpcCall('getbestblockhash');
-        const blocks = [];
-        
-        let currentHash = bestBlockHash;
-        for (let i = 0; i < count && currentHash; i++) {
-            const block = await rpcCall('getblock', [currentHash]);
-            blocks.push(block);
-            currentHash = block.previousblockhash;
-        }
-        
-        res.json(blocks);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/mempool', async (req, res) => {
-    try {
-        const mempool = await rpcCall('getrawmempool');
-        const mempoolInfo = await rpcCall('getmempoolinfo');
-        
-        res.json({
-            transactions: mempool.slice(0, 50), // Limit to 50 recent transactions
-            info: mempoolInfo
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/wallet', async (req, res) => {
-    try {
-        const walletInfo = await rpcCall('getwalletinfo');
-        const balance = await rpcCall('getbalance');
-        
-        res.json({
-            info: walletInfo,
-            balance: balance
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Simple diagnostic endpoint with logging
-app.get('/api/status', async (req, res) => {
-    const startTime = Date.now();
-    logger.info('API request: /api/status', { ip: req.ip });
-    
-    try {
-        const info = await rpcCall('getblockchaininfo');
-        const networkInfo = await rpcCall('getnetworkinfo');
-        
-        const responseData = {
-            status: 'OK',
-            timestamp: new Date().toISOString(),
-            rpc_connected: true,
-            current_block: info.blocks,
-            connections: networkInfo.connections,
-            server_uptime: process.uptime()
-        };
-        
-        const duration = Date.now() - startTime;
-        logger.info('API response: /api/status successful', { 
-            duration: `${duration}ms`,
-            blockHeight: info.blocks,
-            connections: networkInfo.connections,
-            uptime: process.uptime()
-        });
-        
-        res.json(responseData);
-    } catch (error) {
-        const duration = Date.now() - startTime;
-        logger.error('API error: /api/status failed', { 
-            duration: `${duration}ms`,
-            error: error.message,
-            ip: req.ip
-        });
-        res.status(500).json({ 
-            status: 'ERROR',
-            timestamp: new Date().toISOString(),
-            rpc_connected: false,
-            error: error.message 
-        });
-    }
-});
-
-// Health check endpoint for monitoring and Docker health checks
-app.get('/api/health', async (req, res) => {
-    try {
-        // Quick health check - just verify we can reach the Dogecoin RPC
-        const info = await rpcCall('getblockchaininfo');
-        
+    // Health check endpoint (bypass rate limiting)
+    app.get('/health', (req, res) => {
         res.json({
             status: 'healthy',
             timestamp: new Date().toISOString(),
-            dogecoin: {
-                connected: true,
-                blocks: info.blocks,
-                version: info.version || 'unknown'
-            },
-            uptime: process.uptime()
+            services: {
+                rpc: rpcService ? 'initialized' : 'not_initialized',
+                watchdog: watchdog ? (watchdog.isMonitoring ? 'monitoring' : 'initialized') : 'not_initialized'
+            }
         });
-    } catch (error) {
-        logger.error('Health check failed', { error: error.message });
-        res.status(503).json({
-            status: 'unhealthy',
-            timestamp: new Date().toISOString(),
-            error: error.message,
-            uptime: process.uptime()
-        });
-    }
-});
-
-// Watchdog API Endpoints
-
-// Get watchdog status and recent alerts
-app.get('/api/watchdog/status', async (req, res) => {
-    try {
-        const status = watchdog.getStatus();
-        res.json({
-            success: true,
-            data: status,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error('Watchdog status request failed', { error: error.message });
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Get all alerts with pagination
-app.get('/api/watchdog/alerts', async (req, res) => {
-    try {
-        const limit = parseInt(req.query.limit) || 50;
-        const alerts = watchdog.getAlerts(limit);
-        
-        res.json({
-            success: true,
-            data: {
-                alerts,
-                total: alerts.length,
-                limit
-            },
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error('Watchdog alerts request failed', { error: error.message });
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Acknowledge an alert
-app.post('/api/watchdog/alerts/:alertId/acknowledge', async (req, res) => {
-    try {
-        const alertId = parseFloat(req.params.alertId);
-        const success = watchdog.acknowledgeAlert(alertId);
-        
-        if (success) {
-            res.json({
-                success: true,
-                message: 'Alert acknowledged',
-                timestamp: new Date().toISOString()
-            });
-        } else {
-            res.status(404).json({
-                success: false,
-                error: 'Alert not found',
-                timestamp: new Date().toISOString()
-            });
-        }
-    } catch (error) {
-        logger.error('Alert acknowledgment failed', { error: error.message });
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Get watchdog metrics and trends
-app.get('/api/watchdog/metrics', async (req, res) => {
-    try {
-        const metrics = watchdog.getMetrics();
-        res.json({
-            success: true,
-            data: metrics,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        logger.error('Watchdog metrics request failed', { error: error.message });
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Start/stop watchdog monitoring
-app.post('/api/watchdog/control', async (req, res) => {
-    try {
-        const action = req.body.action;
-        
-        if (action === 'start') {
-            await watchdog.startMonitoring();
-            res.json({
-                success: true,
-                message: 'Watchdog monitoring started',
-                timestamp: new Date().toISOString()
-            });
-        } else if (action === 'stop') {
-            watchdog.stopMonitoring();
-            res.json({
-                success: true,
-                message: 'Watchdog monitoring stopped',
-                timestamp: new Date().toISOString()
-            });
-        } else {
-            res.status(400).json({
-                success: false,
-                error: 'Invalid action. Use "start" or "stop"',
-                timestamp: new Date().toISOString()
-            });
-        }
-    } catch (error) {
-        logger.error('Watchdog control failed', { error: error.message });
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// WebSocket server for real-time updates with logging
-const server = require('http').createServer(app);
-const wss = new WebSocket.Server({ server });
-
-let activeConnections = 0;
-
-wss.on('connection', (ws, req) => {
-    activeConnections++;
-    const clientIp = req.connection.remoteAddress;
-    
-    logger.info('WebSocket client connected', { 
-        clientIp: clientIp,
-        activeConnections: activeConnections
     });
-    
-    // Send periodic updates
-    const interval = setInterval(async () => {
-        try {
-            const info = await rpcCall('getblockchaininfo');
-            const networkInfo = await rpcCall('getnetworkinfo');
-            const mempoolInfo = await rpcCall('getmempoolinfo');
-            const watchdogStatus = watchdog.getStatus();
-            
-            const updateData = {
-                type: 'update',
-                data: {
-                    blockchain: info,
-                    network: networkInfo,
-                    mempool: mempoolInfo,
-                    watchdog: {
-                        isMonitoring: watchdogStatus.isMonitoring,
-                        alertCount: watchdogStatus.alertCount,
-                        recentAlerts: watchdogStatus.recentAlerts.slice(0, 5), // Only send 5 most recent
-                        status: watchdogStatus.recentAlerts.length > 0 && 
-                               watchdogStatus.recentAlerts.some(a => !a.acknowledged && a.severity === 'CRITICAL') 
-                               ? 'CRITICAL_ALERT' : 'OK'
-                    },
+
+    // WebSocket endpoint info
+    app.get('/api/websocket/info', (req, res) => {
+        res.json({
+            endpoint: '/websocket',
+            protocol: 'ws',
+            description: 'Real-time updates for node status and alerts'
+        });
+    });
+
+    // Catch-all for SPA routing
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
+
+    // 404 handler
+    app.use(notFoundHandler);
+
+    // Global error handler (must be last)
+    app.use(errorHandler);
+
+    serverLogger.info('✅ Routes configured');
+}
+
+/**
+ * Initialize WebSocket Server
+ */
+function initializeWebSocket() {
+    serverLogger.info('🔌 Initializing WebSocket server...');
+
+    wss = new WebSocket.Server({ 
+        server,
+        path: '/websocket',
+        clientTracking: true
+    });
+
+    wss.on('connection', (ws, req) => {
+        const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        ws.clientId = clientId;
+        
+        serverLogger.info('📱 WebSocket client connected', { 
+            clientId,
+            ip: req.socket.remoteAddress,
+            userAgent: req.headers['user-agent']
+        });
+
+        // Send initial status
+        if (watchdog) {
+            try {
+                const status = watchdog.getStatus();
+                ws.send(JSON.stringify({
+                    type: 'initial_status',
+                    data: status,
                     timestamp: new Date().toISOString()
+                }));
+            } catch (error) {
+                serverLogger.error('Failed to send initial status', { error: error.message, clientId });
+            }
+        }
+
+        // Handle client messages
+        ws.on('message', async (message) => {
+            try {
+                const data = JSON.parse(message);
+                serverLogger.debug('WebSocket message received', { 
+                    clientId,
+                    type: data.type,
+                    data: data.data
+                });
+
+                switch (data.type) {
+                    case 'subscribe':
+                        ws.subscriptions = data.subscriptions || ['alerts', 'status', 'metrics'];
+                        ws.send(JSON.stringify({
+                            type: 'subscription_confirmed',
+                            subscriptions: ws.subscriptions,
+                            timestamp: new Date().toISOString()
+                        }));
+                        break;
+
+                    case 'get_status':
+                        if (watchdog) {
+                            const status = watchdog.getStatus();
+                            ws.send(JSON.stringify({
+                                type: 'status_update',
+                                data: status,
+                                timestamp: new Date().toISOString()
+                            }));
+                        }
+                        break;
+
+                    case 'get_metrics':
+                        if (watchdog) {
+                            const metrics = watchdog.getMetrics();
+                            ws.send(JSON.stringify({
+                                type: 'metrics_update',
+                                data: metrics,
+                                timestamp: new Date().toISOString()
+                            }));
+                        }
+                        break;
+
+                    case 'acknowledge_alert':
+                        if (watchdog && data.alertId) {
+                            const acknowledged = watchdog.acknowledgeAlert(data.alertId);
+                            ws.send(JSON.stringify({
+                                type: 'alert_acknowledged',
+                                alertId: data.alertId,
+                                success: acknowledged,
+                                timestamp: new Date().toISOString()
+                            }));
+                        }
+                        break;
+
+                    default:
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: `Unknown message type: ${data.type}`,
+                            timestamp: new Date().toISOString()
+                        }));
                 }
-            };
-            
-            ws.send(JSON.stringify(updateData));
-            
-            logger.debug('WebSocket update sent', { 
-                clientIp: clientIp,
-                blockHeight: info.blocks,
-                connections: networkInfo.connections
+
+            } catch (error) {
+                serverLogger.error('WebSocket message handling error', { 
+                    error: error.message, 
+                    clientId,
+                    message: message.toString()
+                });
+                
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: 'Invalid message format',
+                    timestamp: new Date().toISOString()
+                }));
+            }
+        });
+
+        // Handle connection close
+        ws.on('close', (code, reason) => {
+            serverLogger.info('📱 WebSocket client disconnected', { 
+                clientId,
+                code,
+                reason: reason.toString()
             });
+        });
+
+        // Handle errors
+        ws.on('error', (error) => {
+            serverLogger.error('WebSocket error', { 
+                error: error.message, 
+                clientId
+            });
+        });
+
+        // Keep connection alive
+        ws.isAlive = true;
+        ws.on('pong', () => {
+            ws.isAlive = true;
+        });
+    });
+
+    // Ping clients periodically
+    const pingInterval = setInterval(() => {
+        wss.clients.forEach((ws) => {
+            if (ws.isAlive === false) {
+                serverLogger.info('Terminating inactive WebSocket connection', { 
+                    clientId: ws.clientId 
+                });
+                return ws.terminate();
+            }
             
-        } catch (error) {
-            logger.error('Error sending WebSocket update', { 
-                clientIp: clientIp,
-                error: error.message
+            ws.isAlive = false;
+            ws.ping();
+        });
+    }, 30000); // 30 seconds
+
+    wss.on('close', () => {
+        clearInterval(pingInterval);
+    });
+
+    serverLogger.info('✅ WebSocket server initialized');
+}
+
+/**
+ * Setup Watchdog Event Handlers
+ */
+function setupWatchdogHandlers() {
+    if (!watchdog) return;
+
+    serverLogger.info('🔍 Setting up watchdog event handlers...');
+
+    // Broadcast watchdog updates to WebSocket clients
+    watchdog.on('update', (data) => {
+        broadcastToClients('watchdog_update', data);
+    });
+
+    watchdog.on('alert', (alert) => {
+        serverLogger.warn('🚨 Watchdog alert', { 
+            type: alert.type, 
+            severity: alert.severity,
+            message: alert.message
+        });
+        
+        broadcastToClients('new_alert', alert);
+    });
+
+    watchdog.on('started', () => {
+        serverLogger.info('🔍 Watchdog monitoring started');
+        broadcastToClients('watchdog_started', { 
+            message: 'Security monitoring activated',
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    watchdog.on('stopped', () => {
+        serverLogger.info('🛑 Watchdog monitoring stopped');
+        broadcastToClients('watchdog_stopped', { 
+            message: 'Security monitoring deactivated',
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    watchdog.on('error', (error) => {
+        serverLogger.error('❌ Watchdog error', { error: error.message });
+        broadcastToClients('watchdog_error', { 
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    serverLogger.info('✅ Watchdog event handlers configured');
+}
+
+/**
+ * Broadcast message to WebSocket clients
+ */
+function broadcastToClients(type, data) {
+    if (!wss) return;
+
+    const message = JSON.stringify({
+        type,
+        data,
+        timestamp: new Date().toISOString()
+    });
+
+    wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+            // Check if client is subscribed to this type
+            if (!client.subscriptions || client.subscriptions.includes(type) || client.subscriptions.includes('all')) {
+                try {
+                    client.send(message);
+                } catch (error) {
+                    serverLogger.error('Failed to send WebSocket message', { 
+                        error: error.message,
+                        clientId: client.clientId,
+                        type
+                    });
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Start Watchdog Monitoring
+ */
+async function startWatchdog() {
+    if (!watchdog) {
+        serverLogger.warn('⚠️ Watchdog service not initialized, skipping monitoring start');
+        return;
+    }
+
+    try {
+        // Wait for Dogecoin node to be ready
+        await new Promise(resolve => setTimeout(resolve, config.watchdog.startupDelay));
+        
+        serverLogger.info('🔍 Starting watchdog monitoring...');
+        await watchdog.startMonitoring();
+        serverLogger.info('✅ Watchdog monitoring started successfully');
+
+    } catch (error) {
+        serverLogger.error('❌ Failed to start watchdog monitoring', { error: error.message });
+        // Continue running without watchdog
+    }
+}
+
+/**
+ * Graceful Shutdown Handler
+ */
+function setupGracefulShutdown() {
+    const shutdown = async (signal) => {
+        serverLogger.info(`🛑 Received ${signal}, starting graceful shutdown...`);
+
+        // Stop accepting new connections
+        server.close(() => {
+            serverLogger.info('✅ HTTP server closed');
+        });
+
+        // Close WebSocket connections
+        if (wss) {
+            wss.clients.forEach((client) => {
+                client.close(1001, 'Server shutting down');
+            });
+            wss.close(() => {
+                serverLogger.info('✅ WebSocket server closed');
             });
         }
-    }, 5000); // Update every 5 seconds
-    
-    ws.on('close', () => {
-        activeConnections--;
-        logger.info('WebSocket client disconnected', { 
-            clientIp: clientIp,
-            activeConnections: activeConnections
-        });
-        clearInterval(interval);
-    });
-    
-    ws.on('error', (error) => {
-        logger.error('WebSocket error', { 
-            clientIp: clientIp,
-            error: error.message
-        });
-    });
-});
 
-// Enhanced server startup with logging
-server.listen(PORT, () => {
-    logger.info('Dogecoin Node Monitor started successfully', {
-        port: PORT,
-        rpcUrl: rpcUrl,
-        nodeEnv: process.env.NODE_ENV || 'development'
-    });
-});
+        // Stop watchdog
+        if (watchdog && watchdog.isMonitoring) {
+            watchdog.stopMonitoring();
+            serverLogger.info('✅ Watchdog monitoring stopped');
+        }
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-    logger.info('Received SIGINT, shutting down gracefully');
-    watchdog.stopMonitoring();
-    server.close(() => {
-        logger.info('Server closed');
+        serverLogger.info('✅ Graceful shutdown completed');
         process.exit(0);
-    });
-});
+    };
 
-process.on('SIGTERM', () => {
-    logger.info('Received SIGTERM, shutting down gracefully');
-    watchdog.stopMonitoring();
-    server.close(() => {
-        logger.info('Server closed');
-        process.exit(0);
-    });
-});
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+}
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Exception', { 
-        error: error.message,
-        stack: error.stack
-    });
-    process.exit(1);
-});
+/**
+ * Main Application Startup
+ */
+async function startServer() {
+    try {
+        serverLogger.info('🚀 Starting Dogecoin Node Monitoring Server...');
+        serverLogger.info('📋 Configuration loaded', { 
+            port: config.server.port,
+            environment: config.env,
+            rpcHost: config.rpc.host,
+            rpcPort: config.rpc.port
+        });
 
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection', { 
-        reason: reason,
-        promise: promise
-    });
-});
+        // Initialize services
+        await initializeServices();
+
+        // Configure Express
+        configureApp();
+
+        // Configure routes
+        configureRoutes();
+
+        // Initialize WebSocket
+        initializeWebSocket();
+
+        // Setup watchdog handlers
+        setupWatchdogHandlers();
+
+        // Setup graceful shutdown
+        setupGracefulShutdown();
+
+        // Start HTTP server
+        server.listen(config.server.port, '0.0.0.0', () => {
+            serverLogger.info('🌐 Server started successfully', {
+                port: config.server.port,
+                host: '0.0.0.0',
+                environment: config.env,
+                pid: process.pid
+            });
+        });
+
+        // Start watchdog monitoring (delayed)
+        startWatchdog();
+
+    } catch (error) {
+        serverLogger.error('❌ Failed to start server', { error: error.message });
+        process.exit(1);
+    }
+}
+
+// Start the server
+if (require.main === module) {
+    startServer();
+}
+
+module.exports = { app, server };
