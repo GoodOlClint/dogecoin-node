@@ -5,19 +5,29 @@
 const express = require('express');
 const { createChildLogger } = require('../utils/logger');
 const { DogecoinRPCService, RPCError } = require('../services/rpc');
+const PeerEnrichmentService = require('../services/peerEnrichment');
 
 const router = express.Router();
 const logger = createChildLogger({ service: 'api-routes' });
 
 /**
- * Initialize RPC service
+ * Initialize services
  */
 let rpcService;
+let peerEnrichmentService;
+
 const initializeRPC = () => {
     if (!rpcService) {
         rpcService = new DogecoinRPCService();
     }
     return rpcService;
+};
+
+const initializePeerEnrichment = () => {
+    if (!peerEnrichmentService) {
+        peerEnrichmentService = new PeerEnrichmentService();
+    }
+    return peerEnrichmentService;
 };
 
 /**
@@ -200,15 +210,21 @@ router.get('/mempool/info', async (req, res) => {
 
 /**
  * GET /api/peers
- * Returns peer connection information
+ * Returns enhanced peer connection information with DNS resolution and geolocation
  */
 router.get('/peers', async (req, res) => {
     try {
         const rpc = initializeRPC();
+        const enrichment = initializePeerEnrichment();
+        
+        // Get basic peer info from Dogecoin node
         const peerInfo = await rpc.call('getpeerinfo');
         
-        // Return peers array directly for frontend compatibility
-        res.json(peerInfo);
+        // Enrich peer data with DNS and geolocation
+        const enrichedPeers = await enrichment.enrichPeers(peerInfo);
+        
+        logger.debug(`Returning ${enrichedPeers.length} enriched peers`);
+        res.json(enrichedPeers);
     } catch (error) {
         handleAPIError(res, error, 'Peer info retrieval');
     }

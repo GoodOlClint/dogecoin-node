@@ -534,7 +534,7 @@ class DogecoinMonitor {
         tbody.innerHTML = '';
         
         if (!peers || peers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="loading">No peers connected</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="loading">No peers connected</td></tr>';
             return;
         }
         
@@ -553,8 +553,16 @@ class DogecoinMonitor {
             // Extract version from subver
             const version = peer.subver ? peer.subver.replace(/[\/\(\)]/g, '') : 'Unknown';
             
+            // Format DNS information
+            const dnsName = this.formatDNSName(peer.dns);
+            
+            // Format geolocation information
+            const location = this.formatLocation(peer.geo);
+            
             row.innerHTML = `
                 <td><span class="peer-address" title="Full address: ${peer.addr}">${peer.addr}</span></td>
+                <td><span class="peer-dns" title="${peer.dns || 'No DNS name available'}">${dnsName}</span></td>
+                <td><span class="peer-location" title="${this.getLocationTooltip(peer.geo)}">${location}</span></td>
                 <td>${direction}</td>
                 <td><span class="peer-version" title="Client: ${peer.subver || 'Unknown'}">${version}</span></td>
                 <td><span class="peer-ping" title="Round-trip time">${pingTime}</span></td>
@@ -852,6 +860,72 @@ class DogecoinMonitor {
         if (hashesPerSecond >= 1e6) return (hashesPerSecond / 1e6).toFixed(2) + ' MH/s';
         if (hashesPerSecond >= 1e3) return (hashesPerSecond / 1e3).toFixed(2) + ' KH/s';
         return hashesPerSecond.toFixed(2) + ' H/s';
+    }
+
+    /**
+     * Formats DNS name for display
+     * @param {string|null} dnsName - DNS name or null
+     * @returns {string} Formatted DNS name
+     */
+    formatDNSName(dnsName) {
+        if (!dnsName) {
+            return '<span class="dns-unknown">N/A</span>';
+        }
+        
+        if (dnsName === 'Private Network') {
+            return '<span class="dns-private">🏠 Private</span>';
+        }
+        
+        // Truncate long DNS names
+        if (dnsName.length > 30) {
+            return `<span class="dns-name" title="${dnsName}">${dnsName.substring(0, 27)}...</span>`;
+        }
+        
+        return `<span class="dns-name">${dnsName}</span>`;
+    }
+
+    /**
+     * Formats location information for display
+     * @param {Object|null} geo - Geolocation data
+     * @returns {string} Formatted location
+     */
+    formatLocation(geo) {
+        if (!geo) {
+            return '<span class="geo-unknown">🌍 Unknown</span>';
+        }
+        
+        if (geo.country === 'Private') {
+            return '<span class="geo-private">🏠 Private Network</span>';
+        }
+        
+        const flag = geo.flag || '🌍';
+        const country = geo.country || 'Unknown';
+        const city = geo.city || 'Unknown';
+        
+        return `<span class="geo-location">${flag} ${country}, ${city}</span>`;
+    }
+
+    /**
+     * Gets detailed location tooltip
+     * @param {Object|null} geo - Geolocation data
+     * @returns {string} Tooltip text
+     */
+    getLocationTooltip(geo) {
+        if (!geo) {
+            return 'Location unknown';
+        }
+        
+        if (geo.country === 'Private') {
+            return 'Private network address';
+        }
+        
+        let tooltip = `Country: ${geo.country || 'Unknown'}`;
+        if (geo.region) tooltip += `\nRegion: ${geo.region}`;
+        if (geo.city) tooltip += `\nCity: ${geo.city}`;
+        if (geo.timezone) tooltip += `\nTimezone: ${geo.timezone}`;
+        if (geo.coords) tooltip += `\nCoordinates: ${geo.coords}`;
+        
+        return tooltip;
     }
 }
 

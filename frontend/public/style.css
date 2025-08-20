@@ -285,6 +285,63 @@ tr:hover {
     color: #666;
 }
 
+/* DNS and Geolocation styling */
+.dns-name {
+    font-size: 0.85rem;
+    color: #007bff;
+    font-weight: 500;
+}
+
+.dns-private {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.dns-unknown {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.geo-location {
+    font-size: 0.85rem;
+    color: #28a745;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.geo-private {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.geo-unknown {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Enhanced peer table styling */
+#peers-table th:nth-child(2),  /* DNS Name */
+#peers-table td:nth-child(2) {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#peers-table th:nth-child(3),  /* Location */
+#peers-table td:nth-child(3) {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .loading {
     text-align: center;
     color: #7f8c8d;

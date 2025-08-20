@@ -8,12 +8,13 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "express": "^5.1.0",
-    "express-rate-limit": "^8.0.1",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
-    "ws": "^8.14.2",
-    "winston": "^3.11.0"
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "geoip-lite": "^1.4.10",
+    "winston": "^3.11.0",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
