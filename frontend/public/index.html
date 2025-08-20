@@ -68,6 +68,32 @@
                     <div class="metric-label">Blockchain Sync</div>
                 </div>
             </div>
+
+            <div class="card" id="watchdog-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-shield-alt"></i> Security Status</h3>
+                </div>
+                <div class="card-content">
+                    <div class="metric-value" id="watchdog-status">Monitoring</div>
+                    <div class="metric-label" id="watchdog-details">0 Active Alerts</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Security Alert Banner -->
+        <section id="security-alerts" class="security-alerts-section" style="display: none;">
+            <div class="alert-banner critical">
+                <div class="alert-content">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div class="alert-text">
+                        <strong>SECURITY ALERT DETECTED</strong>
+                        <span id="alert-summary">Monitoring network for anomalies...</span>
+                    </div>
+                    <button class="alert-dismiss" onclick="dismissSecurityBanner()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- Charts Section -->
@@ -178,6 +204,70 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Security Monitoring Section -->
+        <section class="security-section">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-shield-alt"></i> Security Watchdog</h3>
+                    <div class="watchdog-controls">
+                        <button id="refresh-alerts" class="btn-small">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                        <span id="watchdog-monitoring-status" class="status-badge monitoring">Monitoring</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="security-metrics">
+                        <div class="security-metric">
+                            <div class="metric-icon hash-rate">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </div>
+                            <div class="metric-info">
+                                <div class="metric-label">Hash Rate Status</div>
+                                <div class="metric-value" id="hash-rate-status">Normal</div>
+                            </div>
+                        </div>
+                        <div class="security-metric">
+                            <div class="metric-icon difficulty">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="metric-info">
+                                <div class="metric-label">Difficulty Trend</div>
+                                <div class="metric-value" id="difficulty-trend">Stable</div>
+                            </div>
+                        </div>
+                        <div class="security-metric">
+                            <div class="metric-icon network">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                            <div class="metric-info">
+                                <div class="metric-label">Network Health</div>
+                                <div class="metric-value" id="network-health">Good</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Security Alerts</h3>
+                    <div class="alert-summary">
+                        <span id="alert-count">0 alerts</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="alerts-container">
+                        <div id="no-alerts" class="no-alerts">
+                            <i class="fas fa-check-circle"></i>
+                            <p>No security alerts detected. Network monitoring is active.</p>
+                        </div>
+                        <div id="alerts-list" class="alerts-list" style="display: none;"></div>
                     </div>
                 </div>
             </div>
