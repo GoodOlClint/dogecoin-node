@@ -1,15 +1,17 @@
 # Multi-stage build for Dogecoin Node with Web Monitor
 
 # Stage 1: Download Dogecoin binaries
-FROM alpine:latest AS dogecoin-downloader
+FROM alpine:3.20 AS dogecoin-downloader
+
+# Set shell options for better error handling
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
 # Install minimal tools for fetching latest release and downloading binaries
 RUN apk add --no-cache \
-    wget \
-    tar \
-    ca-certificates \
-    curl \
-    jq
+    ca-certificates=20240705-r0 \
+    curl=8.10.1-r0 \
+    jq=1.7.1-r0 \
+    tar=1.35-r2
 
 # Fetch latest Dogecoin release and download binaries
 WORKDIR /tmp
@@ -25,7 +27,13 @@ RUN set -e && \
     RELEASE_VERSION=${LATEST_RELEASE#v} && \
     DOWNLOAD_URL="https://github.com/dogecoin/dogecoin/releases/download/${LATEST_RELEASE}/dogecoin-${RELEASE_VERSION}-x86_64-linux-gnu.tar.gz" && \
     echo "Downloading from: $DOWNLOAD_URL" && \
-    wget --timeout=60 --tries=3 --waitretry=10 "$DOWNLOAD_URL" && \
+    curl -L --progress-bar \
+        --connect-timeout 60 \
+        --max-time 300 \
+        --retry 3 \
+        --retry-delay 10 \
+        -o "dogecoin-${RELEASE_VERSION}-x86_64-linux-gnu.tar.gz" \
+        "$DOWNLOAD_URL" && \
     echo "Download completed, extracting..." && \
     tar -xzf "dogecoin-${RELEASE_VERSION}-x86_64-linux-gnu.tar.gz" && \
     echo "Extraction completed, copying binaries..." && \
@@ -48,16 +56,20 @@ COPY frontend/ .
 # Stage 3: Runtime image - Use newer Debian bookworm for security fixes
 FROM node:24-bookworm-slim
 
+# Set shell options for better error handling
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+
 # Update package lists and upgrade all packages for security patches
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    libc6 \
     libboost-chrono1.74.0 \
     libboost-filesystem1.74.0 \
     libboost-program-options1.74.0 \
     libboost-system1.74.0 \
     libboost-thread1.74.0 \
+    libc6 \
     libdb5.3++ \
     libevent-2.1-7 \
     libgcc-s1 \
@@ -73,25 +85,24 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 # Copy Dogecoin binaries from downloader stage
 COPY --from=dogecoin-downloader /usr/local/bin/dogecoind /usr/local/bin/
 COPY --from=dogecoin-downloader /usr/local/bin/dogecoin-cli /usr/local/bin/
-RUN chmod +x /usr/local/bin/dogecoind /usr/local/bin/dogecoin-cli
 
 # Verify binaries exist and are executable
-RUN echo "Verifying Dogecoin binaries exist:" \
-    && ls -la /usr/local/bin/dogecoin* \
-    && test -x /usr/local/bin/dogecoind \
-    && test -x /usr/local/bin/dogecoin-cli \
-    && echo "Dogecoin binaries are present and executable"
+RUN chmod +x /usr/local/bin/dogecoind /usr/local/bin/dogecoin-cli && \
+    echo "Verifying Dogecoin binaries exist:" && \
+    ls -la /usr/local/bin/dogecoin* && \
+    test -x /usr/local/bin/dogecoind && \
+    test -x /usr/local/bin/dogecoin-cli && \
+    echo "Dogecoin binaries are present and executable"
 
 # Copy frontend application with dependencies
 COPY --from=frontend-builder /app/frontend /app/frontend
 WORKDIR /app/frontend
 
-# Create non-root user for security
-RUN groupadd -r dogecoin && useradd -r -g dogecoin -d /app -s /bin/bash dogecoin
-
-# Create dogecoin data directories, logs directory with proper ownership
-RUN mkdir -p /data /app/logs \
-    && chown -R dogecoin:dogecoin /data /app
+# Create non-root user and directories for security
+RUN groupadd -r dogecoin && \
+    useradd -r -g dogecoin -d /app -s /bin/bash dogecoin && \
+    mkdir -p /data /app/logs && \
+    chown -R dogecoin:dogecoin /data /app
 
 # Copy startup script
 COPY docker-entrypoint.sh /usr/local/bin/
@@ -106,8 +117,8 @@ ENV NODE_ENV=production
 # Switch to non-root user
 USER dogecoin
 
-LABEL name="dogecoin-node-monitor" 
+LABEL name="dogecoin-node" 
 LABEL description="Dogecoin fullnode container with web monitoring interface (latest release, optimized)"
-LABEL maintainer="Dogecoin Monitor <monitor@dogecoin.local>"
+LABEL maintainer="GoodOlClint <goodolclint@gmail.com>"
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
