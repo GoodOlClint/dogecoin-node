@@ -8,8 +8,8 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
 # Install minimal tools for fetching latest release and downloading binaries
 RUN apk add --no-cache \
-    ca-certificates=20240705-r0 \
-    curl=8.10.1-r0 \
+    ca-certificates=20250619-r0 \
+    curl=8.12.1-r0 \
     jq=1.7.1-r0 \
     tar=1.35-r2
 
