@@ -692,25 +692,39 @@ return;
         }
     }
 
+    // Helper to escape HTML special characters
+    escapeHTML(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/`/g, '&#96;');
+    }
+
     createAlertHTML(alert) {
         const timeAgo = this.timeAgo(new Date(alert.timestamp));
-        const severityClass = alert.severity.toLowerCase();
+        const severityClass = this.escapeHTML(alert.severity.toLowerCase());
+        const alertId = this.escapeHTML(alert.id);
+        const alertType = this.escapeHTML(alert.type.replace(/_/g, ' '));
+        const alertMessage = this.escapeHTML(alert.message);
 
         return `
-            <div class="alert-item ${severityClass}" data-alert-id="${alert.id}">
+            <div class="alert-item ${severityClass}" data-alert-id="${alertId}">
                 <div class="alert-header">
-                    <span class="alert-type">${alert.type.replace(/_/g, ' ')}</span>
+                    <span class="alert-type">${alertType}</span>
                     <span class="alert-time">${timeAgo}</span>
                 </div>
-                <div class="alert-message">${alert.message}</div>
+                <div class="alert-message">${alertMessage}</div>
                 <div class="alert-actions">
                     ${!alert.acknowledged ?
-                        `<button class="acknowledge-btn" onclick="window.dogecoinMonitor.acknowledgeAlert('${alert.id}')">
+                        `<button class="acknowledge-btn" onclick="window.dogecoinMonitor.acknowledgeAlert('${alertId}')">
                             Acknowledge
                         </button>` :
                         '<span class="acknowledged">✓ Acknowledged</span>'
                     }
-                    <button class="details-btn" onclick="window.dogecoinMonitor.showAlertDetails('${alert.id}')">
+                    <button class="details-btn" onclick="window.dogecoinMonitor.showAlertDetails('${alertId}')">
                         Details
                     </button>
                 </div>
