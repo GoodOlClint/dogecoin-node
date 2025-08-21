@@ -195,7 +195,13 @@ class DogecoinMonitor {
         };
 
         this.ws.onmessage = (event) => {
-            console.log('WebSocket message received:', event.data);
+            // Log only message type for security, not raw user data
+            try {
+                const message = JSON.parse(event.data);
+                console.log('WebSocket message received, type:', message.type || 'unknown');
+            } catch {
+                console.log('WebSocket message received (invalid JSON)');
+            }
             const message = JSON.parse(event.data);
             if (message.type === 'update') {
                 this.updateUI(message.data);
@@ -578,7 +584,8 @@ return;
     // Watchdog-related methods
     updateWatchdogUI(watchdogData) {
         try {
-            console.log('Updating watchdog UI:', watchdogData);
+            // Log only safe metadata, not user-controlled data
+            console.log('Updating watchdog UI, status:', watchdogData?.isMonitoring ? 'monitoring' : 'stopped');
 
             // Update watchdog state
             this.watchdog = {
