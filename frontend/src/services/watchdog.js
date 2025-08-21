@@ -11,10 +11,10 @@ const { DogecoinRPCService, RPCError } = require('./rpc');
 class DogecoinWatchdog extends EventEmitter {
     constructor(rpcService = null) {
         super();
-        
+
         this.rpc = rpcService || new DogecoinRPCService();
         this.logger = createChildLogger({ service: 'watchdog' });
-        
+
         // State management
         this.isMonitoring = false;
         this.monitoringInterval = null;
@@ -22,7 +22,7 @@ class DogecoinWatchdog extends EventEmitter {
         this.metrics = this.initializeMetrics();
         this.baselines = this.initializeBaselines();
         this.thresholds = config.watchdog.thresholds;
-        
+
         // Bind methods to preserve context
         this.performSecurityChecks = this.performSecurityChecks.bind(this);
     }
@@ -86,7 +86,6 @@ class DogecoinWatchdog extends EventEmitter {
 
             this.logger.info('✅ Dogecoin network watchdog started');
             this.emit('started');
-
         } catch (error) {
             this.logger.error('Failed to start watchdog', { error: error.message });
             this.isMonitoring = false;
@@ -105,7 +104,7 @@ class DogecoinWatchdog extends EventEmitter {
         }
 
         this.isMonitoring = false;
-        
+
         if (this.monitoringInterval) {
             clearInterval(this.monitoringInterval);
             this.monitoringInterval = null;
@@ -146,7 +145,6 @@ class DogecoinWatchdog extends EventEmitter {
             };
 
             this.logger.info('📈 Baselines calculated', this.baselines);
-
         } catch (error) {
             this.logger.error('Failed to calculate baselines', { error: error.message });
             // Don't throw here to allow monitoring to continue with default values
@@ -182,7 +180,9 @@ class DogecoinWatchdog extends EventEmitter {
      * @returns {Promise<void>}
      */
     async performSecurityChecks() {
-        if (!this.isMonitoring) return;
+        if (!this.isMonitoring) {
+return;
+}
 
         try {
             this.logger.debug('Performing security checks...');
@@ -215,7 +215,6 @@ class DogecoinWatchdog extends EventEmitter {
                 metrics: this.getRecentMetrics(),
                 alerts: this.getRecentAlerts()
             });
-
         } catch (error) {
             if (error instanceof RPCError) {
                 this.createAlert('SYSTEM_ERROR', 'CRITICAL', `Watchdog system error: ${error.message}`, {
@@ -405,7 +404,6 @@ class DogecoinWatchdog extends EventEmitter {
 
             // 4. Monitor mempool volatility
             await this.checkMempoolVolatility(currentData);
-
         } catch (error) {
             this.logger.error('Failed to check for 51% attack', { error: error.message });
         }
@@ -417,7 +415,7 @@ class DogecoinWatchdog extends EventEmitter {
     async checkForDeepReorgs(currentData) {
         try {
             const chainTips = await this.rpc.getChainTips();
-            const deepReorgs = chainTips.filter(tip => 
+            const deepReorgs = chainTips.filter(tip =>
                 tip.status === 'valid-fork' && tip.branchlen >= 6
             );
 
@@ -438,7 +436,7 @@ class DogecoinWatchdog extends EventEmitter {
             }
 
             // Check for frequent shallow reorgs (also suspicious)
-            const recentReorgs = chainTips.filter(tip => 
+            const recentReorgs = chainTips.filter(tip =>
                 tip.status === 'valid-fork' && tip.branchlen >= 2
             );
 
@@ -454,7 +452,6 @@ class DogecoinWatchdog extends EventEmitter {
                     }
                 );
             }
-
         } catch (error) {
             this.logger.warn('Could not check chain reorganizations', { error: error.message });
         }
@@ -467,7 +464,7 @@ class DogecoinWatchdog extends EventEmitter {
         try {
             const networkHashPS = currentData.network.networkhashps;
             const difficulty = currentData.blockchain.difficulty;
-            
+
             // Store hashrate history
             this.metrics.hashRate.push({
                 timestamp: Date.now(),
@@ -483,7 +480,7 @@ class DogecoinWatchdog extends EventEmitter {
             if (this.metrics.hashRate.length >= 5) {
                 const recent = this.metrics.hashRate.slice(-3);
                 const baseline = this.metrics.hashRate.slice(0, -3);
-                
+
                 const recentAvg = this.calculateAverage(recent.map(h => h.hashrate));
                 const baselineAvg = this.calculateAverage(baseline.map(h => h.hashrate));
 
@@ -502,7 +499,6 @@ class DogecoinWatchdog extends EventEmitter {
                     );
                 }
             }
-
         } catch (error) {
             this.logger.warn('Could not check hashrate anomalies', { error: error.message });
         }
@@ -514,8 +510,10 @@ class DogecoinWatchdog extends EventEmitter {
     async checkBlockTimingAnomalies(currentData) {
         try {
             const recentBlocks = await this.getRecentBlocks(currentData.blockchain.blocks, 20);
-            
-            if (recentBlocks.length < 10) return;
+
+            if (recentBlocks.length < 10) {
+return;
+}
 
             // Calculate block time intervals with block details
             const blockTimes = [];
@@ -534,7 +532,9 @@ class DogecoinWatchdog extends EventEmitter {
                 }
             }
 
-            if (blockTimes.length === 0) return;
+            if (blockTimes.length === 0) {
+return;
+}
 
             // Check for attack pattern: long gap + burst of fast blocks
             const avgBlockTime = this.calculateAverage(blockTimes);
@@ -546,13 +546,13 @@ class DogecoinWatchdog extends EventEmitter {
             if (maxGap > 1200 && avgRecentFast < 30) { // 20 min gap + 30s avg recent
                 const maxGapIndex = blockTimes.indexOf(maxGap);
                 const suspiciousBlocks = blockDetails.slice(0, 6); // Show more detail for this critical alert
-                
+
                 this.createAlert(
                     'SUSPICIOUS_BLOCK_PATTERN',
                     'CRITICAL',
-                    `🚨 ATTACK PATTERN DETECTED! Long block gap (${(maxGap/60).toFixed(1)} min) followed by rapid burst (${avgRecentFast.toFixed(1)}s avg). Classic 51% attack signature!`,
+                    `🚨 ATTACK PATTERN DETECTED! Long block gap (${(maxGap / 60).toFixed(1)} min) followed by rapid burst (${avgRecentFast.toFixed(1)}s avg). Classic 51% attack signature!`,
                     {
-                        maxGap: (maxGap/60).toFixed(1) + ' minutes',
+                        maxGap: (maxGap / 60).toFixed(1) + ' minutes',
                         recentAverage: avgRecentFast.toFixed(1) + ' seconds',
                         pattern: 'long-gap-then-burst',
                         analysis: 'Attacker likely mined a private chain during the gap, then released it to replace public blocks',
@@ -566,7 +566,7 @@ class DogecoinWatchdog extends EventEmitter {
             // Check for consistently fast blocks (hashrate advantage)
             else if (avgBlockTime < 30) { // Dogecoin target is ~60 seconds
                 const fastBlocks = blockDetails.slice(0, Math.min(10, blockDetails.length)); // Show up to 10 recent blocks
-                
+
                 this.createAlert(
                     'RAPID_BLOCK_GENERATION',
                     'HIGH',
@@ -583,7 +583,6 @@ class DogecoinWatchdog extends EventEmitter {
                     }
                 );
             }
-
         } catch (error) {
             this.logger.warn('Could not check block timing patterns', { error: error.message });
         }
@@ -596,7 +595,7 @@ class DogecoinWatchdog extends EventEmitter {
         try {
             const mempoolInfo = await this.rpc.getMempoolInfo();
             const mempoolSize = mempoolInfo.size;
-            
+
             // Store mempool history
             this.metrics.mempool.push({
                 timestamp: Date.now(),
@@ -612,7 +611,7 @@ class DogecoinWatchdog extends EventEmitter {
             if (this.metrics.mempool.length >= 5) {
                 const recent = this.metrics.mempool.slice(-2);
                 const baseline = this.metrics.mempool.slice(0, -2);
-                
+
                 const recentAvg = this.calculateAverage(recent.map(m => m.size));
                 const baselineAvg = this.calculateAverage(baseline.map(m => m.size));
 
@@ -631,7 +630,6 @@ class DogecoinWatchdog extends EventEmitter {
                     );
                 }
             }
-
         } catch (error) {
             this.logger.warn('Could not check mempool volatility', { error: error.message });
         }
@@ -691,22 +689,22 @@ class DogecoinWatchdog extends EventEmitter {
      */
     async getRecentBlockTimes(currentBlock, count) {
         const blockTimes = [];
-        
+
         for (let i = 0; i < Math.min(count, 10); i++) { // Limit to prevent too many RPC calls
             try {
                 const blockHash1 = await this.rpc.call('getblockhash', [currentBlock - i]);
                 const blockHash2 = await this.rpc.call('getblockhash', [currentBlock - i - 1]);
-                
+
                 const block1 = await this.rpc.call('getblock', [blockHash1]);
                 const block2 = await this.rpc.call('getblock', [blockHash2]);
-                
+
                 blockTimes.push(block1.time - block2.time);
             } catch (error) {
                 this.logger.error('Failed to get block time', { blockHeight: currentBlock - i, error: error.message });
                 break;
             }
         }
-        
+
         return blockTimes;
     }
 
@@ -718,7 +716,7 @@ class DogecoinWatchdog extends EventEmitter {
      */
     async getRecentBlocks(currentBlock, count) {
         const blocks = [];
-        
+
         for (let i = 0; i < Math.min(count, 10); i++) {
             try {
                 const blockHash = await this.rpc.call('getblockhash', [currentBlock - i]);
@@ -729,7 +727,7 @@ class DogecoinWatchdog extends EventEmitter {
                 break;
             }
         }
-        
+
         return blocks;
     }
 
@@ -739,7 +737,9 @@ class DogecoinWatchdog extends EventEmitter {
      * @returns {number} Average value
      */
     calculateAverage(values) {
-        if (!values.length) return 0;
+        if (!values.length) {
+return 0;
+}
         return values.reduce((sum, val) => sum + val, 0) / values.length;
     }
 
@@ -748,19 +748,27 @@ class DogecoinWatchdog extends EventEmitter {
      * @returns {string} Overall status
      */
     getOverallStatus() {
-        if (!this.isMonitoring) return 'OFFLINE';
-        
+        if (!this.isMonitoring) {
+return 'OFFLINE';
+}
+
         const recentAlerts = this.getRecentAlerts(10);
         const criticalAlerts = recentAlerts.filter(a => a.severity === 'CRITICAL' && !a.acknowledged);
-        
-        if (criticalAlerts.length > 0) return 'CRITICAL_ALERT';
-        
+
+        if (criticalAlerts.length > 0) {
+return 'CRITICAL_ALERT';
+}
+
         const highAlerts = recentAlerts.filter(a => a.severity === 'HIGH' && !a.acknowledged);
-        if (highAlerts.length > 0) return 'HIGH_ALERT';
-        
+        if (highAlerts.length > 0) {
+return 'HIGH_ALERT';
+}
+
         const mediumAlerts = recentAlerts.filter(a => a.severity === 'MEDIUM' && !a.acknowledged);
-        if (mediumAlerts.length > 0) return 'MEDIUM_ALERT';
-        
+        if (mediumAlerts.length > 0) {
+return 'MEDIUM_ALERT';
+}
+
         return 'SECURE';
     }
 
@@ -779,16 +787,16 @@ class DogecoinWatchdog extends EventEmitter {
      */
     getRecentMetrics() {
         const getRecent = (arr, count = 10) => arr.slice(-count);
-        
+
         return {
             hashRate: getRecent(this.metrics.hashRate),
             difficulty: getRecent(this.metrics.difficulty),
             mempool: getRecent(this.metrics.mempool),
             networkNodes: getRecent(this.metrics.networkNodes),
             summary: {
-                currentHashRate: this.metrics.hashRate.length > 0 
-                    ? this.metrics.hashRate[this.metrics.hashRate.length - 1].value 
-                    : null,
+                currentHashRate: this.metrics.hashRate.length > 0 ?
+                    this.metrics.hashRate[this.metrics.hashRate.length - 1].value :
+                    null,
                 hashRateTrend: this.calculateTrend(this.metrics.hashRate),
                 difficultyTrend: this.calculateTrend(this.metrics.difficulty)
             }
@@ -801,12 +809,14 @@ class DogecoinWatchdog extends EventEmitter {
      * @returns {number} Trend percentage
      */
     calculateTrend(dataPoints) {
-        if (dataPoints.length < 2) return 0;
-        
+        if (dataPoints.length < 2) {
+return 0;
+}
+
         const recent = dataPoints.slice(-10);
         const first = recent[0].value;
         const last = recent[recent.length - 1].value;
-        
+
         return ((last - first) / first) * 100;
     }
 

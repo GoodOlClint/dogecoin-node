@@ -37,7 +37,7 @@ const config = {
         monitoringInterval: parseInt(process.env.WATCHDOG_INTERVAL) || 30000,
         maxBaselineRetries: parseInt(process.env.WATCHDOG_MAX_RETRIES) || 10,
         baselineRetryDelay: parseInt(process.env.WATCHDOG_RETRY_DELAY) || 3000,
-        
+
         // Security thresholds
         thresholds: {
             hashRateSpike: parseFloat(process.env.WATCHDOG_HASH_SPIKE) || 5.0,

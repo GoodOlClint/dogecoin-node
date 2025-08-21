@@ -16,7 +16,7 @@ function createLogger() {
     const logDir = process.env.LOG_DIR || (
         process.env.NODE_ENV === 'production' ? '/app/logs' : './logs'
     );
-    
+
     // Create logs directory if it doesn't exist
     if (!fs.existsSync(logDir)) {
         try {

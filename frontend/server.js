@@ -20,18 +20,18 @@ const apiRoutes = require('./src/routes/api');
 const { router: watchdogRoutes, initializeWatchdog } = require('./src/routes/watchdog');
 
 // Import middleware
-const { 
-    errorHandler, 
-    notFoundHandler, 
-    asyncHandler, 
-    requestTimeout 
+const {
+    errorHandler,
+    notFoundHandler,
+    asyncHandler,
+    requestTimeout
 } = require('./src/middleware/errorHandler');
-const { 
-    securityHeaders, 
-    validateInput, 
-    requestLogger, 
-    corsHandler, 
-    healthCheckBypass 
+const {
+    securityHeaders,
+    validateInput,
+    requestLogger,
+    corsHandler,
+    healthCheckBypass
 } = require('./src/middleware/security');
 
 // Create child logger for server
@@ -57,7 +57,7 @@ async function initializeServices() {
 
         // Initialize RPC service
         rpcService = new DogecoinRPCService();
-        
+
         // Test RPC connection
         const isConnected = await rpcService.testConnection();
         if (!isConnected) {
@@ -68,13 +68,12 @@ async function initializeServices() {
 
         // Initialize watchdog service
         watchdog = new DogecoinWatchdog(rpcService);
-        
+
         // Initialize watchdog routes with the service
         initializeWatchdog(watchdog);
 
         serverLogger.info('✅ All services initialized successfully');
         return true;
-
     } catch (error) {
         serverLogger.error('❌ Failed to initialize services', { error: error.message });
         throw error;
@@ -173,7 +172,7 @@ function configureRoutes() {
 function initializeWebSocket() {
     serverLogger.info('🔌 Initializing WebSocket server...');
 
-    wss = new WebSocket.Server({ 
+    wss = new WebSocket.Server({
         server,
         path: '/websocket',
         clientTracking: true
@@ -182,8 +181,8 @@ function initializeWebSocket() {
     wss.on('connection', (ws, req) => {
         const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         ws.clientId = clientId;
-        
-        serverLogger.info('📱 WebSocket client connected', { 
+
+        serverLogger.info('📱 WebSocket client connected', {
             clientId,
             ip: req.socket.remoteAddress,
             userAgent: req.headers['user-agent']
@@ -204,10 +203,10 @@ function initializeWebSocket() {
         }
 
         // Handle client messages
-        ws.on('message', async (message) => {
+        ws.on('message', async(message) => {
             try {
                 const data = JSON.parse(message);
-                serverLogger.debug('WebSocket message received', { 
+                serverLogger.debug('WebSocket message received', {
                     clientId,
                     type: data.type,
                     data: data.data
@@ -264,14 +263,13 @@ function initializeWebSocket() {
                             timestamp: new Date().toISOString()
                         }));
                 }
-
             } catch (error) {
-                serverLogger.error('WebSocket message handling error', { 
-                    error: error.message, 
+                serverLogger.error('WebSocket message handling error', {
+                    error: error.message,
                     clientId,
                     message: message.toString()
                 });
-                
+
                 ws.send(JSON.stringify({
                     type: 'error',
                     message: 'Invalid message format',
@@ -282,7 +280,7 @@ function initializeWebSocket() {
 
         // Handle connection close
         ws.on('close', (code, reason) => {
-            serverLogger.info('📱 WebSocket client disconnected', { 
+            serverLogger.info('📱 WebSocket client disconnected', {
                 clientId,
                 code,
                 reason: reason.toString()
@@ -291,8 +289,8 @@ function initializeWebSocket() {
 
         // Handle errors
         ws.on('error', (error) => {
-            serverLogger.error('WebSocket error', { 
-                error: error.message, 
+            serverLogger.error('WebSocket error', {
+                error: error.message,
                 clientId
             });
         });
@@ -308,12 +306,12 @@ function initializeWebSocket() {
     const pingInterval = setInterval(() => {
         wss.clients.forEach((ws) => {
             if (ws.isAlive === false) {
-                serverLogger.info('Terminating inactive WebSocket connection', { 
-                    clientId: ws.clientId 
+                serverLogger.info('Terminating inactive WebSocket connection', {
+                    clientId: ws.clientId
                 });
                 return ws.terminate();
             }
-            
+
             ws.isAlive = false;
             ws.ping();
         });
@@ -330,7 +328,9 @@ function initializeWebSocket() {
  * Setup Watchdog Event Handlers
  */
 function setupWatchdogHandlers() {
-    if (!watchdog) return;
+    if (!watchdog) {
+return;
+}
 
     serverLogger.info('🔍 Setting up watchdog event handlers...');
 
@@ -340,18 +340,18 @@ function setupWatchdogHandlers() {
     });
 
     watchdog.on('alert', (alert) => {
-        serverLogger.warn('🚨 Watchdog alert', { 
-            type: alert.type, 
+        serverLogger.warn('🚨 Watchdog alert', {
+            type: alert.type,
             severity: alert.severity,
             message: alert.message
         });
-        
+
         broadcastToClients('new_alert', alert);
     });
 
     watchdog.on('started', () => {
         serverLogger.info('🔍 Watchdog monitoring started');
-        broadcastToClients('watchdog_started', { 
+        broadcastToClients('watchdog_started', {
             message: 'Security monitoring activated',
             timestamp: new Date().toISOString()
         });
@@ -359,7 +359,7 @@ function setupWatchdogHandlers() {
 
     watchdog.on('stopped', () => {
         serverLogger.info('🛑 Watchdog monitoring stopped');
-        broadcastToClients('watchdog_stopped', { 
+        broadcastToClients('watchdog_stopped', {
             message: 'Security monitoring deactivated',
             timestamp: new Date().toISOString()
         });
@@ -367,7 +367,7 @@ function setupWatchdogHandlers() {
 
     watchdog.on('error', (error) => {
         serverLogger.error('❌ Watchdog error', { error: error.message });
-        broadcastToClients('watchdog_error', { 
+        broadcastToClients('watchdog_error', {
             message: error.message,
             timestamp: new Date().toISOString()
         });
@@ -380,7 +380,9 @@ function setupWatchdogHandlers() {
  * Broadcast message to WebSocket clients
  */
 function broadcastToClients(type, data) {
-    if (!wss) return;
+    if (!wss) {
+return;
+}
 
     const message = JSON.stringify({
         type,
@@ -395,7 +397,7 @@ function broadcastToClients(type, data) {
                 try {
                     client.send(message);
                 } catch (error) {
-                    serverLogger.error('Failed to send WebSocket message', { 
+                    serverLogger.error('Failed to send WebSocket message', {
                         error: error.message,
                         clientId: client.clientId,
                         type
@@ -418,11 +420,10 @@ async function startWatchdog() {
     try {
         // Wait for Dogecoin node to be ready
         await new Promise(resolve => setTimeout(resolve, config.watchdog.startupDelay));
-        
+
         serverLogger.info('🔍 Starting watchdog monitoring...');
         await watchdog.startMonitoring();
         serverLogger.info('✅ Watchdog monitoring started successfully');
-
     } catch (error) {
         serverLogger.error('❌ Failed to start watchdog monitoring', { error: error.message });
         // Continue running without watchdog
@@ -433,7 +434,7 @@ async function startWatchdog() {
  * Graceful Shutdown Handler
  */
 function setupGracefulShutdown() {
-    const shutdown = async (signal) => {
+    const shutdown = async(signal) => {
         serverLogger.info(`🛑 Received ${signal}, starting graceful shutdown...`);
 
         // Stop accepting new connections
@@ -471,7 +472,7 @@ function setupGracefulShutdown() {
 async function startServer() {
     try {
         serverLogger.info('🚀 Starting Dogecoin Node Monitoring Server...');
-        serverLogger.info('📋 Configuration loaded', { 
+        serverLogger.info('📋 Configuration loaded', {
             port: config.server.port,
             environment: config.env,
             rpcHost: config.rpc.host,
@@ -508,7 +509,6 @@ async function startServer() {
 
         // Start watchdog monitoring (delayed)
         startWatchdog();
-
     } catch (error) {
         serverLogger.error('❌ Failed to start server', { error: error.message });
         process.exit(1);

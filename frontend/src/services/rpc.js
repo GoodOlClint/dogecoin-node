@@ -30,19 +30,19 @@ class DogecoinRPCService {
                 this.logger.warn('RPC cookie file not found, using fallback credentials', {
                     cookiePath: config.rpc.cookiePath
                 });
-                
+
                 // Require environment variables for security
                 const username = process.env.DOGECOIN_RPC_USER;
                 const password = process.env.DOGECOIN_RPC_PASS;
-                
+
                 if (!username || !password) {
                     throw new Error('RPC credentials not found. Set DOGECOIN_RPC_USER and DOGECOIN_RPC_PASS environment variables or ensure cookie file exists.');
                 }
-                
+
                 return { username, password };
             }
         } catch (error) {
-            this.logger.error('Error reading RPC cookie', { 
+            this.logger.error('Error reading RPC cookie', {
                 error: error.message,
                 cookiePath: config.rpc.cookiePath
             });
@@ -85,7 +85,6 @@ class DogecoinRPCService {
 
             this.logger.debug('RPC call successful', { method, requestId });
             return response.data.result;
-
         } catch (error) {
             if (error instanceof RPCError) {
                 throw error;
@@ -112,13 +111,13 @@ class DogecoinRPCService {
                 throw new RPCError('Request timeout', -3, method);
             }
 
-            this.logger.error('RPC call failed', { 
-                method, 
+            this.logger.error('RPC call failed', {
+                method,
                 error: error.message,
                 status: error.response?.status,
                 code: error.code
             });
-            
+
             throw new RPCError(`RPC call failed: ${error.message}`, -99, method);
         }
     }
@@ -139,7 +138,7 @@ class DogecoinRPCService {
                 return await this.call(method, params);
             } catch (error) {
                 lastError = error;
-                
+
                 if (attempt === maxRetries) {
                     this.logger.error('RPC call failed after all retries', {
                         method,

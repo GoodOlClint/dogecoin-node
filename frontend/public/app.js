@@ -1,14 +1,14 @@
 class DogecoinMonitor {
     constructor() {
         console.log('Initializing Dogecoin Monitor...');
-        
+
         // Configuration
         this.config = {
             refreshInterval: 10000, // 10 seconds
             maxDataPoints: 50,
             reconnectDelay: 5000 // 5 seconds
         };
-        
+
         // Initialize state
         this.ws = null;
         this.charts = {};
@@ -16,48 +16,48 @@ class DogecoinMonitor {
             blockHeight: [],
             mempoolSize: []
         };
-        
+
         // Watchdog state
         this.watchdog = {
             isMonitoring: false,
             alerts: [],
             status: 'UNKNOWN'
         };
-        
+
         // Startup state
         this.isStarting = true;
         this.startupRetryCount = 0;
         this.maxStartupRetries = 60; // 5 minutes with 5-second intervals
-        
+
         // Update UI to show initialization
         this.updateConnectionStatus('connecting', 'Initializing...');
         this.showStartupOverlay();
-        
+
         // Start initialization sequence
         this.initialize();
     }
-    
+
     async initialize() {
         try {
             console.log('Setting up charts...');
             this.initializeCharts();
-            
+
             console.log('Loading initial data...');
             await this.loadInitialData();
-            
+
             console.log('Connecting WebSocket...');
             this.connectWebSocket();
-            
+
             // Set up fallback refresh timer
             setInterval(() => this.loadInitialData(), this.config.refreshInterval);
-            
+
             console.log('Dogecoin Monitor fully initialized');
         } catch (error) {
             console.error('Failed to initialize:', error);
             this.updateConnectionStatus('error', 'Initialization Failed');
         }
     }
-    
+
     showStartupOverlay() {
         // Create startup overlay if it doesn't exist
         let overlay = document.getElementById('startup-overlay');
@@ -78,7 +78,7 @@ class DogecoinMonitor {
                     <p class="startup-tip">💡 The node needs to sync with the network and load blockchain data</p>
                 </div>
             `;
-            
+
             // Add CSS styles
             const style = document.createElement('style');
             style.textContent = `
@@ -153,12 +153,12 @@ class DogecoinMonitor {
                     font-style: italic;
                 }
             `;
-            
+
             document.head.appendChild(style);
             document.body.appendChild(overlay);
         }
     }
-    
+
     hideStartupOverlay() {
         const overlay = document.getElementById('startup-overlay');
         if (overlay) {
@@ -166,56 +166,56 @@ class DogecoinMonitor {
         }
         this.isStarting = false;
     }
-    
+
     updateStartupStatus(message) {
         const statusElement = document.querySelector('.startup-status');
         if (statusElement) {
             statusElement.textContent = message;
         }
     }
-    
+
     connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/websocket`;
-        
+
         console.log('Attempting WebSocket connection to:', wsUrl);
-        
+
         // Update status to show we're attempting connection
         const statusElement = document.getElementById('connection-status');
         if (statusElement) {
             statusElement.textContent = 'Connecting...';
             statusElement.className = 'status connecting';
         }
-        
+
         this.ws = new WebSocket(wsUrl);
-        
+
         this.ws.onopen = () => {
             console.log('WebSocket connected successfully');
             this.updateConnectionStatus('connected');
         };
-        
+
         this.ws.onmessage = (event) => {
             console.log('WebSocket message received:', event.data);
             const message = JSON.parse(event.data);
             if (message.type === 'update') {
                 this.updateUI(message.data);
-                
+
                 // Handle watchdog data if present
                 if (message.data.watchdog) {
                     this.updateWatchdogUI(message.data.watchdog);
                 }
-                
+
                 this.updateLastUpdate();
             }
         };
-        
+
         this.ws.onclose = (event) => {
             console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
             this.updateConnectionStatus('disconnected');
             // Attempt to reconnect after delay
             setTimeout(() => this.connectWebSocket(), 5000);
         };
-        
+
         this.ws.onerror = (error) => {
             console.error('WebSocket error occurred:', error);
             const statusElement = document.getElementById('connection-status');
@@ -225,47 +225,49 @@ class DogecoinMonitor {
             }
         };
     }
-    
+
     updateConnectionStatus(status, message = null) {
         const statusElement = document.getElementById('connection-status');
-        if (!statusElement) return;
-        
+        if (!statusElement) {
+return;
+}
+
         // Handle boolean parameters for backward compatibility
         if (typeof status === 'boolean') {
             status = status ? 'connected' : 'disconnected';
         }
-        
+
         const statusMap = {
-            'connected': { text: 'Connected', class: 'status connected' },
-            'connecting': { text: message || 'Connecting...', class: 'status connecting' },
-            'disconnected': { text: 'Disconnected', class: 'status disconnected' },
-            'error': { text: message || 'Connection Failed', class: 'status disconnected' }
+            connected: { text: 'Connected', class: 'status connected' },
+            connecting: { text: message || 'Connecting...', class: 'status connecting' },
+            disconnected: { text: 'Disconnected', class: 'status disconnected' },
+            error: { text: message || 'Connection Failed', class: 'status disconnected' }
         };
-        
+
         const statusInfo = statusMap[status] || statusMap['error'];
         statusElement.textContent = statusInfo.text;
         statusElement.className = statusInfo.class;
-        
+
         // Update page title to reflect connection status
         const titlePrefix = status === 'connected' ? '● ' : '○ ';
         document.title = `${titlePrefix}Dogecoin Monitor`;
     }
-    
+
     updateLastUpdate() {
         const now = new Date();
-        document.getElementById('last-update').textContent = 
+        document.getElementById('last-update').textContent =
             `Last update: ${now.toLocaleTimeString()}`;
     }
-    
+
     async loadInitialData() {
         try {
             console.log('Loading initial data via REST API...');
-            
+
             // Update startup status if still starting
             if (this.isStarting) {
                 this.updateStartupStatus('Loading blockchain data...');
             }
-            
+
             // Load basic info
             console.log('Fetching /api/info...');
             const infoResponse = await fetch('/api/info');
@@ -280,14 +282,14 @@ class DogecoinMonitor {
             }
             const info = await infoResponse.json();
             console.log('Info data received:', info);
-            
+
             // If we get here and were starting, hide the overlay
             if (this.isStarting) {
                 this.hideStartupOverlay();
             }
-            
+
             this.updateUI(info);
-            
+
             // Load blocks
             console.log('Fetching /api/blocks/10...');
             const blocksResponse = await fetch('/api/blocks/10');
@@ -297,7 +299,7 @@ class DogecoinMonitor {
             const blocks = await blocksResponse.json();
             console.log('Blocks data received:', blocks.length, 'blocks');
             this.updateBlocksTable(blocks);
-            
+
             // Load peers
             console.log('Fetching /api/peers...');
             const peersResponse = await fetch('/api/peers');
@@ -307,11 +309,11 @@ class DogecoinMonitor {
             const peers = await peersResponse.json();
             console.log('Peers data received:', peers.length, 'peers');
             this.updatePeersTable(peers);
-            
+
             // Load watchdog data
             console.log('Fetching watchdog data...');
             await this.refreshWatchdogData();
-            
+
             // If WebSocket is not connected, show that we're getting data via REST API
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
                 const statusElement = document.getElementById('connection-status');
@@ -320,14 +322,13 @@ class DogecoinMonitor {
                     statusElement.className = 'status connecting';
                 }
             }
-            
+
             this.updateLastUpdate();
             console.log('Initial data loaded successfully');
-            
         } catch (error) {
             console.error('Error loading initial data:', error);
             console.error('Error stack:', error.stack);
-            
+
             // Handle startup retries
             if (this.isStarting && this.startupRetryCount < this.maxStartupRetries) {
                 this.startupRetryCount++;
@@ -335,12 +336,12 @@ class DogecoinMonitor {
                 setTimeout(() => this.loadInitialData(), 5000);
                 return;
             }
-            
+
             // If not starting or max retries exceeded, show error
             if (this.isStarting) {
                 this.hideStartupOverlay();
             }
-            
+
             const statusElement = document.getElementById('connection-status');
             if (statusElement) {
                 statusElement.textContent = 'Connection Failed';
@@ -348,31 +349,31 @@ class DogecoinMonitor {
             }
         }
     }
-    
+
     updateUI(data) {
         try {
             if (data.blockchain) {
-                document.getElementById('block-height').textContent = 
+                document.getElementById('block-height').textContent =
                     data.blockchain.blocks.toLocaleString();
-                document.getElementById('difficulty').textContent = 
+                document.getElementById('difficulty').textContent =
                     this.formatNumber(data.blockchain.difficulty);
                 document.getElementById('chain').textContent = data.blockchain.chain;
-                document.getElementById('size-on-disk').textContent = 
+                document.getElementById('size-on-disk').textContent =
                     this.formatBytes(data.blockchain.size_on_disk);
-                
+
                 // Update sync progress
                 const syncProgress = ((data.blockchain.blocks / data.blockchain.headers) * 100).toFixed(2);
                 document.getElementById('sync-progress').textContent = `${syncProgress}%`;
-                
+
                 // Add data point for chart
                 this.addDataPoint('blockHeight', data.blockchain.blocks);
             }
-            
+
             if (data.network) {
                 document.getElementById('connections').textContent = data.network.connections;
                 document.getElementById('node-version').textContent = data.network.subversion;
                 document.getElementById('protocol-version').textContent = data.network.protocolversion;
-                
+
                 // Update hash rate
                 if (data.network.networkhashps) {
                     document.getElementById('hash-rate').textContent = this.formatHashRate(data.network.networkhashps);
@@ -380,38 +381,38 @@ class DogecoinMonitor {
                     document.getElementById('hash-rate').textContent = 'N/A';
                 }
             }
-            
+
             if (data.mempool) {
-                document.getElementById('mempool-size').textContent = 
+                document.getElementById('mempool-size').textContent =
                     data.mempool.size.toLocaleString();
-                
+
                 // Add data point for chart
                 this.addDataPoint('mempoolSize', data.mempool.size);
             }
-            
+
             this.updateCharts();
         } catch (error) {
             console.error('Error updating UI:', error);
             throw error; // Re-throw so the calling function can handle it
         }
     }
-    
+
     addDataPoint(series, value) {
         if (!this.data[series]) {
             this.data[series] = [];
         }
-        
+
         this.data[series].push({
             x: new Date(),
             y: value
         });
-        
+
         // Keep only last N data points
         if (this.data[series].length > this.config.maxDataPoints) {
             this.data[series].shift();
         }
     }
-    
+
     initializeCharts() {
         // Block Height Chart
         const blockHeightCtx = document.getElementById('blockHeightChart').getContext('2d');
@@ -452,7 +453,7 @@ class DogecoinMonitor {
                 }
             }
         });
-        
+
         // Mempool Chart
         const mempoolCtx = document.getElementById('mempoolChart').getContext('2d');
         this.charts.mempool = new Chart(mempoolCtx, {
@@ -493,28 +494,28 @@ class DogecoinMonitor {
             }
         });
     }
-    
+
     updateCharts() {
         if (this.charts.blockHeight && this.data.blockHeight.length > 0) {
             this.charts.blockHeight.data.datasets[0].data = this.data.blockHeight;
             this.charts.blockHeight.update('none');
         }
-        
+
         if (this.charts.mempool && this.data.mempoolSize.length > 0) {
             this.charts.mempool.data.datasets[0].data = this.data.mempoolSize;
             this.charts.mempool.update('none');
         }
     }
-    
+
     updateBlocksTable(blocks) {
         const tbody = document.getElementById('blocks-tbody');
         tbody.innerHTML = '';
-        
+
         if (!blocks || blocks.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="loading">No blocks available</td></tr>';
             return;
         }
-        
+
         blocks.forEach(block => {
             const row = document.createElement('tr');
             const explorerUrl = `https://dogechain.info/block/${block.hash}`;
@@ -528,37 +529,37 @@ class DogecoinMonitor {
             tbody.appendChild(row);
         });
     }
-    
+
     updatePeersTable(peers) {
         const tbody = document.getElementById('peers-tbody');
         tbody.innerHTML = '';
-        
+
         if (!peers || peers.length === 0) {
             tbody.innerHTML = '<tr><td colspan="9" class="loading">No peers connected</td></tr>';
             return;
         }
-        
+
         peers.forEach(peer => {
             const row = document.createElement('tr');
             const connectionTime = new Date(peer.conntime * 1000).toLocaleString();
-            
+
             // Determine connection direction with styling
-            const direction = peer.inbound ? 
-                '<span class="peer-direction inbound" title="Incoming connection">⬇️ Inbound</span>' : 
+            const direction = peer.inbound ?
+                '<span class="peer-direction inbound" title="Incoming connection">⬇️ Inbound</span>' :
                 '<span class="peer-direction outbound" title="Outgoing connection">⬆️ Outbound</span>';
-            
+
             // Format ping time
             const pingTime = peer.pingtime ? `${(peer.pingtime * 1000).toFixed(0)}ms` : 'N/A';
-            
+
             // Extract version from subver
             const version = peer.subver ? peer.subver.replace(/[\/\(\)]/g, '') : 'Unknown';
-            
+
             // Format DNS information
             const dnsName = this.formatDNSName(peer.dns);
-            
+
             // Format geolocation information
             const location = this.formatLocation(peer.geo);
-            
+
             row.innerHTML = `
                 <td><span class="peer-address" title="Full address: ${peer.addr}">${peer.addr}</span></td>
                 <td><span class="peer-dns" title="${peer.dns || 'No DNS name available'}">${dnsName}</span></td>
@@ -573,42 +574,43 @@ class DogecoinMonitor {
             tbody.appendChild(row);
         });
     }
-    
+
     // Watchdog-related methods
     updateWatchdogUI(watchdogData) {
         try {
             console.log('Updating watchdog UI:', watchdogData);
-            
+
             // Update watchdog state
             this.watchdog = {
                 ...this.watchdog,
                 ...watchdogData
             };
-            
+
             // Update security status card
             this.updateSecurityStatusCard(watchdogData);
-            
+
             // Update security alerts banner
             this.updateSecurityBanner(watchdogData);
-            
+
             // Update security monitoring section
             this.updateSecuritySection(watchdogData);
-            
         } catch (error) {
             console.error('Error updating watchdog UI:', error);
         }
     }
-    
+
     updateSecurityStatusCard(watchdogData) {
         const statusElement = document.getElementById('watchdog-status');
         const detailsElement = document.getElementById('watchdog-details');
         const cardElement = document.getElementById('watchdog-card');
-        
-        if (!statusElement || !detailsElement || !cardElement) return;
-        
+
+        if (!statusElement || !detailsElement || !cardElement) {
+return;
+}
+
         // Remove existing alert classes
         cardElement.classList.remove('alert', 'warning', 'normal');
-        
+
         if (watchdogData.status === 'CRITICAL_ALERT') {
             statusElement.textContent = 'ALERT';
             statusElement.style.color = '#e74c3c';
@@ -626,13 +628,15 @@ class DogecoinMonitor {
             cardElement.classList.add('normal');
         }
     }
-    
+
     updateSecurityBanner(watchdogData) {
         const bannerSection = document.getElementById('security-alerts');
         const alertSummary = document.getElementById('alert-summary');
-        
-        if (!bannerSection || !alertSummary) return;
-        
+
+        if (!bannerSection || !alertSummary) {
+return;
+}
+
         if (watchdogData.status === 'CRITICAL_ALERT' && watchdogData.recentAlerts.length > 0) {
             const criticalAlert = watchdogData.recentAlerts.find(alert => alert.severity === 'CRITICAL');
             if (criticalAlert) {
@@ -643,7 +647,7 @@ class DogecoinMonitor {
             bannerSection.style.display = 'none';
         }
     }
-    
+
     updateSecuritySection(watchdogData) {
         // Update monitoring status badge
         const statusBadge = document.getElementById('watchdog-monitoring-status');
@@ -656,40 +660,42 @@ class DogecoinMonitor {
                 statusBadge.className = 'status-badge stopped';
             }
         }
-        
+
         // Update alert count
         const alertCount = document.getElementById('alert-count');
         if (alertCount) {
             const count = watchdogData.alertCount || 0;
-            alertCount.textContent = count === 0 ? 'No alerts' : 
+            alertCount.textContent = count === 0 ? 'No alerts' :
                                     count === 1 ? '1 alert' : `${count} alerts`;
         }
-        
+
         // Update alerts list
         this.updateAlertsList(watchdogData.recentAlerts || []);
     }
-    
+
     updateAlertsList(alerts) {
         const noAlertsDiv = document.getElementById('no-alerts');
         const alertsList = document.getElementById('alerts-list');
-        
-        if (!noAlertsDiv || !alertsList) return;
-        
+
+        if (!noAlertsDiv || !alertsList) {
+return;
+}
+
         if (alerts.length === 0) {
             noAlertsDiv.style.display = 'block';
             alertsList.style.display = 'none';
         } else {
             noAlertsDiv.style.display = 'none';
             alertsList.style.display = 'block';
-            
+
             alertsList.innerHTML = alerts.map(alert => this.createAlertHTML(alert)).join('');
         }
     }
-    
+
     createAlertHTML(alert) {
         const timeAgo = this.timeAgo(new Date(alert.timestamp));
         const severityClass = alert.severity.toLowerCase();
-        
+
         return `
             <div class="alert-item ${severityClass}" data-alert-id="${alert.id}">
                 <div class="alert-header">
@@ -698,10 +704,10 @@ class DogecoinMonitor {
                 </div>
                 <div class="alert-message">${alert.message}</div>
                 <div class="alert-actions">
-                    ${!alert.acknowledged ? 
+                    ${!alert.acknowledged ?
                         `<button class="acknowledge-btn" onclick="window.dogecoinMonitor.acknowledgeAlert('${alert.id}')">
                             Acknowledge
-                        </button>` : 
+                        </button>` :
                         '<span class="acknowledged">✓ Acknowledged</span>'
                     }
                     <button class="details-btn" onclick="window.dogecoinMonitor.showAlertDetails('${alert.id}')">
@@ -711,13 +717,13 @@ class DogecoinMonitor {
             </div>
         `;
     }
-    
+
     async acknowledgeAlert(alertId) {
         try {
             const response = await fetch(`/api/watchdog/alerts/${alertId}/acknowledge`, {
                 method: 'POST'
             });
-            
+
             if (response.ok) {
                 console.log('Alert acknowledged successfully');
                 // Refresh alerts
@@ -729,19 +735,19 @@ class DogecoinMonitor {
             console.error('Error acknowledging alert:', error);
         }
     }
-    
+
     showAlertDetails(alertId) {
         // Look for the alert in recentAlerts first, then in alerts
         let alert = null;
-        
+
         if (this.watchdog.recentAlerts) {
             alert = this.watchdog.recentAlerts.find(a => a.id === alertId);
         }
-        
+
         if (!alert && this.watchdog.alerts) {
             alert = this.watchdog.alerts.find(a => a.id === alertId);
         }
-        
+
         if (alert) {
             // Create a more user-friendly modal instead of alert()
             this.showAlertModal(alert);
@@ -750,7 +756,7 @@ class DogecoinMonitor {
             alert('Alert details not available');
         }
     }
-    
+
     showAlertModal(alert) {
         // Create modal HTML
         const modalHTML = `
@@ -801,16 +807,16 @@ class DogecoinMonitor {
                 </div>
             </div>
         `;
-        
+
         // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     }
-    
+
     async refreshWatchdogData() {
         try {
             const response = await fetch('/api/watchdog/status');
             const result = await response.json();
-            
+
             if (result.status === 'success') {
                 this.updateWatchdogUI(result.data);
             }
@@ -818,47 +824,77 @@ class DogecoinMonitor {
             console.error('Error refreshing watchdog data:', error);
         }
     }
-    
+
     timeAgo(date) {
         const now = new Date();
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMins / 60);
         const diffDays = Math.floor(diffHours / 24);
-        
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
+
+        if (diffMins < 1) {
+return 'Just now';
+}
+        if (diffMins < 60) {
+return `${diffMins}m ago`;
+}
+        if (diffHours < 24) {
+return `${diffHours}h ago`;
+}
         return `${diffDays}d ago`;
     }
-    
+
     // Utility methods
     formatBytes(bytes) {
-        if (bytes === 0) return '0 B';
+        if (bytes === 0) {
+return '0 B';
+}
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
-    
+
     formatNumber(num) {
-        if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
-        if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-        if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-        if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+        if (num >= 1e12) {
+return (num / 1e12).toFixed(2) + 'T';
+}
+        if (num >= 1e9) {
+return (num / 1e9).toFixed(2) + 'B';
+}
+        if (num >= 1e6) {
+return (num / 1e6).toFixed(2) + 'M';
+}
+        if (num >= 1e3) {
+return (num / 1e3).toFixed(2) + 'K';
+}
         return num.toLocaleString();
     }
-    
+
     formatHashRate(hashesPerSecond) {
-        if (!hashesPerSecond || hashesPerSecond === 0) return '0 H/s';
-        
+        if (!hashesPerSecond || hashesPerSecond === 0) {
+return '0 H/s';
+}
+
         // Convert to appropriate units
-        if (hashesPerSecond >= 1e18) return (hashesPerSecond / 1e18).toFixed(2) + ' EH/s';
-        if (hashesPerSecond >= 1e15) return (hashesPerSecond / 1e15).toFixed(2) + ' PH/s';
-        if (hashesPerSecond >= 1e12) return (hashesPerSecond / 1e12).toFixed(2) + ' TH/s';
-        if (hashesPerSecond >= 1e9) return (hashesPerSecond / 1e9).toFixed(2) + ' GH/s';
-        if (hashesPerSecond >= 1e6) return (hashesPerSecond / 1e6).toFixed(2) + ' MH/s';
-        if (hashesPerSecond >= 1e3) return (hashesPerSecond / 1e3).toFixed(2) + ' KH/s';
+        if (hashesPerSecond >= 1e18) {
+return (hashesPerSecond / 1e18).toFixed(2) + ' EH/s';
+}
+        if (hashesPerSecond >= 1e15) {
+return (hashesPerSecond / 1e15).toFixed(2) + ' PH/s';
+}
+        if (hashesPerSecond >= 1e12) {
+return (hashesPerSecond / 1e12).toFixed(2) + ' TH/s';
+}
+        if (hashesPerSecond >= 1e9) {
+return (hashesPerSecond / 1e9).toFixed(2) + ' GH/s';
+}
+        if (hashesPerSecond >= 1e6) {
+return (hashesPerSecond / 1e6).toFixed(2) + ' MH/s';
+}
+        if (hashesPerSecond >= 1e3) {
+return (hashesPerSecond / 1e3).toFixed(2) + ' KH/s';
+}
         return hashesPerSecond.toFixed(2) + ' H/s';
     }
 
@@ -871,16 +907,16 @@ class DogecoinMonitor {
         if (!dnsName) {
             return '<span class="dns-unknown">N/A</span>';
         }
-        
+
         if (dnsName === 'Private Network') {
             return '<span class="dns-private">🏠 Private</span>';
         }
-        
+
         // Truncate long DNS names
         if (dnsName.length > 30) {
             return `<span class="dns-name" title="${dnsName}">${dnsName.substring(0, 27)}...</span>`;
         }
-        
+
         return `<span class="dns-name">${dnsName}</span>`;
     }
 
@@ -893,15 +929,15 @@ class DogecoinMonitor {
         if (!geo) {
             return '<span class="geo-unknown">🌍 Unknown</span>';
         }
-        
+
         if (geo.country === 'Private') {
             return '<span class="geo-private">🏠 Private Network</span>';
         }
-        
+
         const flag = geo.flag || '🌍';
         const country = geo.country || 'Unknown';
         const city = geo.city || 'Unknown';
-        
+
         return `<span class="geo-location">${flag} ${country}, ${city}</span>`;
     }
 
@@ -914,17 +950,25 @@ class DogecoinMonitor {
         if (!geo) {
             return 'Location unknown';
         }
-        
+
         if (geo.country === 'Private') {
             return 'Private network address';
         }
-        
+
         let tooltip = `Country: ${geo.country || 'Unknown'}`;
-        if (geo.region) tooltip += `\nRegion: ${geo.region}`;
-        if (geo.city) tooltip += `\nCity: ${geo.city}`;
-        if (geo.timezone) tooltip += `\nTimezone: ${geo.timezone}`;
-        if (geo.coords) tooltip += `\nCoordinates: ${geo.coords}`;
-        
+        if (geo.region) {
+tooltip += `\nRegion: ${geo.region}`;
+}
+        if (geo.city) {
+tooltip += `\nCity: ${geo.city}`;
+}
+        if (geo.timezone) {
+tooltip += `\nTimezone: ${geo.timezone}`;
+}
+        if (geo.coords) {
+tooltip += `\nCoordinates: ${geo.coords}`;
+}
+
         return tooltip;
     }
 }
@@ -942,7 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing Dogecoin Monitor...');
     window.dogecoinMonitor = new DogecoinMonitor();
     console.log('Dogecoin Monitor initialized');
-    
+
     // Set up watchdog control event listeners
     const refreshButton = document.getElementById('refresh-alerts');
     if (refreshButton) {
@@ -950,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.dogecoinMonitor.refreshWatchdogData();
         });
     }
-    
+
     // Load initial watchdog data
     setTimeout(() => {
         window.dogecoinMonitor.refreshWatchdogData();

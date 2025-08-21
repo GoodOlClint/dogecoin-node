@@ -35,7 +35,7 @@ const initializePeerEnrichment = () => {
  */
 const handleAPIError = (res, error, operation) => {
     logger.error(`${operation} failed`, { error: error.message });
-    
+
     if (error instanceof RPCError) {
         return res.status(503).json({
             error: 'RPC_ERROR',
@@ -44,7 +44,7 @@ const handleAPIError = (res, error, operation) => {
             method: error.method
         });
     }
-    
+
     return res.status(500).json({
         error: 'INTERNAL_ERROR',
         message: error.message
@@ -55,11 +55,11 @@ const handleAPIError = (res, error, operation) => {
  * GET /api/health
  * Returns basic health status of the Dogecoin node
  */
-router.get('/health', async (req, res) => {
+router.get('/health', async(req, res) => {
     try {
         const rpc = initializeRPC();
         const isHealthy = await rpc.testConnection();
-        
+
         if (isHealthy) {
             res.json({
                 status: 'healthy',
@@ -83,14 +83,14 @@ router.get('/health', async (req, res) => {
  * GET /api/info
  * Returns basic node information for the frontend
  */
-router.get('/info', async (req, res) => {
+router.get('/info', async(req, res) => {
     try {
         const rpc = initializeRPC();
         const [nodeInfo, networkHashPS] = await Promise.all([
             rpc.getNodeInfo(),
             rpc.getNetworkHashPS(120).catch(() => null) // Get hash rate for last 120 blocks, fallback to null if fails
         ]);
-        
+
         // Format data for frontend compatibility (expected nested structure)
         const info = {
             blockchain: {
@@ -125,7 +125,7 @@ router.get('/info', async (req, res) => {
             },
             timestamp: new Date().toISOString()
         };
-        
+
         res.json(info);
     } catch (error) {
         handleAPIError(res, error, 'Info retrieval');
@@ -136,11 +136,11 @@ router.get('/info', async (req, res) => {
  * GET /api/status
  * Returns comprehensive status of the Dogecoin node
  */
-router.get('/status', async (req, res) => {
+router.get('/status', async(req, res) => {
     try {
         const rpc = initializeRPC();
         const nodeInfo = await rpc.getNodeInfo();
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -155,11 +155,11 @@ router.get('/status', async (req, res) => {
  * GET /api/blockchain/info
  * Returns blockchain information
  */
-router.get('/blockchain/info', async (req, res) => {
+router.get('/blockchain/info', async(req, res) => {
     try {
         const rpc = initializeRPC();
         const blockchainInfo = await rpc.call('getblockchaininfo');
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -174,11 +174,11 @@ router.get('/blockchain/info', async (req, res) => {
  * GET /api/network/info
  * Returns network information
  */
-router.get('/network/info', async (req, res) => {
+router.get('/network/info', async(req, res) => {
     try {
         const rpc = initializeRPC();
         const networkInfo = await rpc.call('getnetworkinfo');
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -193,11 +193,11 @@ router.get('/network/info', async (req, res) => {
  * GET /api/mempool/info
  * Returns mempool information
  */
-router.get('/mempool/info', async (req, res) => {
+router.get('/mempool/info', async(req, res) => {
     try {
         const rpc = initializeRPC();
         const mempoolInfo = await rpc.call('getmempoolinfo');
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -212,17 +212,17 @@ router.get('/mempool/info', async (req, res) => {
  * GET /api/peers
  * Returns enhanced peer connection information with DNS resolution and geolocation
  */
-router.get('/peers', async (req, res) => {
+router.get('/peers', async(req, res) => {
     try {
         const rpc = initializeRPC();
         const enrichment = initializePeerEnrichment();
-        
+
         // Get basic peer info from Dogecoin node
         const peerInfo = await rpc.call('getpeerinfo');
-        
+
         // Enrich peer data with DNS and geolocation
         const enrichedPeers = await enrichment.enrichPeers(peerInfo);
-        
+
         logger.debug(`Returning ${enrichedPeers.length} enriched peers`);
         res.json(enrichedPeers);
     } catch (error) {
@@ -234,31 +234,33 @@ router.get('/peers', async (req, res) => {
  * GET /api/blocks/:count
  * Returns information about recent blocks
  */
-router.get('/blocks/:count', async (req, res) => {
+router.get('/blocks/:count', async(req, res) => {
     try {
         const count = parseInt(req.params.count);
-        
+
         if (isNaN(count) || count < 1 || count > 100) {
             return res.status(400).json({
                 error: 'INVALID_PARAMETER',
                 message: 'Block count must be a number between 1 and 100'
             });
         }
-        
+
         const rpc = initializeRPC();
         const bestBlockHash = await rpc.call('getbestblockhash');
         const currentHeight = await rpc.call('getblockcount');
-        
+
         const blocks = [];
-        
+
         // Get the requested number of recent blocks
         for (let i = 0; i < count; i++) {
             const height = currentHeight - i;
-            if (height < 0) break;
-            
+            if (height < 0) {
+break;
+}
+
             const blockHash = await rpc.call('getblockhash', [height]);
             const block = await rpc.call('getblock', [blockHash]);
-            
+
             blocks.push({
                 height: block.height,
                 hash: block.hash,
@@ -269,7 +271,7 @@ router.get('/blocks/:count', async (req, res) => {
                 difficulty: block.difficulty
             });
         }
-        
+
         res.json(blocks);
     } catch (error) {
         handleAPIError(res, error, `Recent blocks retrieval for count: ${req.params.count}`);
@@ -280,20 +282,20 @@ router.get('/blocks/:count', async (req, res) => {
  * GET /api/block/:hash
  * Returns information about a specific block
  */
-router.get('/block/:hash', async (req, res) => {
+router.get('/block/:hash', async(req, res) => {
     try {
         const { hash } = req.params;
-        
+
         if (!hash || typeof hash !== 'string') {
             return res.status(400).json({
                 error: 'INVALID_PARAMETER',
                 message: 'Block hash is required and must be a string'
             });
         }
-        
+
         const rpc = initializeRPC();
         const blockInfo = await rpc.call('getblock', [hash]);
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -308,21 +310,21 @@ router.get('/block/:hash', async (req, res) => {
  * GET /api/block/height/:height
  * Returns information about a block at specific height
  */
-router.get('/block/height/:height', async (req, res) => {
+router.get('/block/height/:height', async(req, res) => {
     try {
         const height = parseInt(req.params.height);
-        
+
         if (isNaN(height) || height < 0) {
             return res.status(400).json({
                 error: 'INVALID_PARAMETER',
                 message: 'Block height must be a valid non-negative number'
             });
         }
-        
+
         const rpc = initializeRPC();
         const blockHash = await rpc.call('getblockhash', [height]);
         const blockInfo = await rpc.call('getblock', [blockHash]);
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -337,20 +339,20 @@ router.get('/block/height/:height', async (req, res) => {
  * GET /api/transaction/:txid
  * Returns information about a specific transaction
  */
-router.get('/transaction/:txid', async (req, res) => {
+router.get('/transaction/:txid', async(req, res) => {
     try {
         const { txid } = req.params;
-        
+
         if (!txid || typeof txid !== 'string') {
             return res.status(400).json({
                 error: 'INVALID_PARAMETER',
                 message: 'Transaction ID is required and must be a string'
             });
         }
-        
+
         const rpc = initializeRPC();
         const txInfo = await rpc.call('getrawtransaction', [txid, true]);
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -365,17 +367,17 @@ router.get('/transaction/:txid', async (req, res) => {
  * POST /api/rpc
  * Generic RPC call endpoint (with security restrictions)
  */
-router.post('/rpc', async (req, res) => {
+router.post('/rpc', async(req, res) => {
     try {
         const { method, params = [] } = req.body;
-        
+
         if (!method || typeof method !== 'string') {
             return res.status(400).json({
                 error: 'INVALID_PARAMETER',
                 message: 'RPC method is required and must be a string'
             });
         }
-        
+
         // Whitelist of allowed RPC methods for security
         const allowedMethods = [
             'getblockchaininfo',
@@ -391,7 +393,7 @@ router.post('/rpc', async (req, res) => {
             'gettxout',
             'validateaddress'
         ];
-        
+
         if (!allowedMethods.includes(method)) {
             return res.status(403).json({
                 error: 'FORBIDDEN_METHOD',
@@ -399,10 +401,10 @@ router.post('/rpc', async (req, res) => {
                 allowedMethods
             });
         }
-        
+
         const rpc = initializeRPC();
         const result = await rpc.call(method, params);
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),

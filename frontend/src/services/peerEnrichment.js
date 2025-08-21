@@ -28,7 +28,7 @@ class PeerEnrichmentService {
         this.logger.debug(`Enriching ${peers.length} peers with DNS and geo data`);
 
         const enrichedPeers = await Promise.all(
-            peers.map(async (peer) => {
+            peers.map(async(peer) => {
                 try {
                     const enrichedPeer = { ...peer };
                     const ipAddress = this.extractIPAddress(peer.addr);
@@ -36,7 +36,7 @@ class PeerEnrichmentService {
                     if (ipAddress) {
                         // Add DNS resolution (non-blocking)
                         enrichedPeer.dns = await this.resolveDNS(ipAddress);
-                        
+
                         // Add geolocation
                         enrichedPeer.geo = this.getGeolocation(ipAddress);
                     }
@@ -108,10 +108,9 @@ class PeerEnrichmentService {
 
             const hostname = hostnames && hostnames.length > 0 ? hostnames[0] : null;
             this.setCachedValue(cacheKey, hostname);
-            
+
             this.logger.debug(`DNS resolved: ${ipAddress} -> ${hostname}`);
             return hostname;
-
         } catch (error) {
             // Cache null result to avoid repeated lookups
             this.setCachedValue(`dns:${ipAddress}`, null);
@@ -157,7 +156,7 @@ class PeerEnrichmentService {
                     flag: this.getCountryFlag(geo.country),
                     coords: geo.ll ? `${geo.ll[0]}, ${geo.ll[1]}` : null
                 };
-                
+
                 this.setCachedValue(cacheKey, result);
                 this.logger.debug(`Geolocation found: ${ipAddress} -> ${geo.country}, ${geo.city}`);
                 return result;
@@ -166,7 +165,6 @@ class PeerEnrichmentService {
             // Cache null result
             this.setCachedValue(cacheKey, null);
             return null;
-
         } catch (error) {
             this.logger.warn(`Geolocation failed for ${ipAddress}`, { error: error.message });
             this.setCachedValue(`geo:${ipAddress}`, null);
@@ -181,17 +179,35 @@ class PeerEnrichmentService {
      */
     isPrivateIP(ipAddress) {
         // IPv4 private ranges
-        if (ipAddress.match(/^10\./)) return true;
-        if (ipAddress.match(/^192\.168\./)) return true;
-        if (ipAddress.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)) return true;
-        if (ipAddress.match(/^127\./)) return true;
-        if (ipAddress.match(/^169\.254\./)) return true;
+        if (ipAddress.match(/^10\./)) {
+return true;
+}
+        if (ipAddress.match(/^192\.168\./)) {
+return true;
+}
+        if (ipAddress.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./)) {
+return true;
+}
+        if (ipAddress.match(/^127\./)) {
+return true;
+}
+        if (ipAddress.match(/^169\.254\./)) {
+return true;
+}
 
         // IPv6 private ranges
-        if (ipAddress.startsWith('::1')) return true;
-        if (ipAddress.startsWith('fc')) return true;
-        if (ipAddress.startsWith('fd')) return true;
-        if (ipAddress.startsWith('fe80')) return true;
+        if (ipAddress.startsWith('::1')) {
+return true;
+}
+        if (ipAddress.startsWith('fc')) {
+return true;
+}
+        if (ipAddress.startsWith('fd')) {
+return true;
+}
+        if (ipAddress.startsWith('fe80')) {
+return true;
+}
 
         return false;
     }
@@ -207,11 +223,11 @@ class PeerEnrichmentService {
         }
 
         const flagMap = {
-            'US': '🇺🇸', 'CN': '🇨🇳', 'DE': '🇩🇪', 'JP': '🇯🇵', 'GB': '🇬🇧',
-            'FR': '🇫🇷', 'KR': '🇰🇷', 'CA': '🇨🇦', 'IT': '🇮🇹', 'ES': '🇪🇸',
-            'AU': '🇦🇺', 'BR': '🇧🇷', 'IN': '🇮🇳', 'RU': '🇷🇺', 'NL': '🇳🇱',
-            'SE': '🇸🇪', 'NO': '🇳🇴', 'CH': '🇨🇭', 'AT': '🇦🇹', 'FI': '🇫🇮',
-            'DK': '🇩🇰', 'BE': '🇧🇪', 'PL': '🇵🇱', 'CZ': '🇨🇿', 'SG': '🇸🇬'
+            US: '🇺🇸', CN: '🇨🇳', DE: '🇩🇪', JP: '🇯🇵', GB: '🇬🇧',
+            FR: '🇫🇷', KR: '🇰🇷', CA: '🇨🇦', IT: '🇮🇹', ES: '🇪🇸',
+            AU: '🇦🇺', BR: '🇧🇷', IN: '🇮🇳', RU: '🇷🇺', NL: '🇳🇱',
+            SE: '🇸🇪', NO: '🇳🇴', CH: '🇨🇭', AT: '🇦🇹', FI: '🇫🇮',
+            DK: '🇩🇰', BE: '🇧🇪', PL: '🇵🇱', CZ: '🇨🇿', SG: '🇸🇬'
         };
 
         return flagMap[countryCode.toUpperCase()] || '🌍';
@@ -253,7 +269,7 @@ class PeerEnrichmentService {
      */
     clearExpiredCache() {
         const now = Date.now();
-        
+
         for (const [key, entry] of this.dnsCache.entries()) {
             if (now - entry.timestamp >= this.cacheTimeout) {
                 this.dnsCache.delete(key);

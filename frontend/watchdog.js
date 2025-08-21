@@ -14,18 +14,18 @@ class DogecoinWatchdog {
             mempool: [],
             orphanBlocks: 0
         };
-        
+
         // Attack detection thresholds
         this.thresholds = {
-            hashRateSpike: 5.0,      // 5x normal hash rate increase
-            hashRateDrop: 0.3,       // 70% hash rate drop
-            blockTimeAnomaly: 3.0,   // 3x normal block time variance
-            difficultySpike: 3.0,    // 3x difficulty increase
-            mempoolFlood: 10000,     // 10k+ pending transactions
-            lowNodeCount: 50,        // Fewer than 50 nodes
-            orphanBlockThreshold: 5   // 5+ orphan blocks in window
+            hashRateSpike: 5.0, // 5x normal hash rate increase
+            hashRateDrop: 0.3, // 70% hash rate drop
+            blockTimeAnomaly: 3.0, // 3x normal block time variance
+            difficultySpike: 3.0, // 3x difficulty increase
+            mempoolFlood: 10000, // 10k+ pending transactions
+            lowNodeCount: 50, // Fewer than 50 nodes
+            orphanBlockThreshold: 5 // 5+ orphan blocks in window
         };
-        
+
         // Historical baselines (updated dynamically)
         this.baselines = {
             avgHashRate: null,
@@ -33,53 +33,57 @@ class DogecoinWatchdog {
             avgDifficulty: null,
             avgMempoolSize: null
         };
-        
+
         this.isMonitoring = false;
         this.monitoringInterval = null;
     }
 
     async startMonitoring() {
-        if (this.isMonitoring) return;
-        
+        if (this.isMonitoring) {
+return;
+}
+
         this.logger.info('🔍 Starting Dogecoin network watchdog...');
         this.isMonitoring = true;
-        
+
         // Initial baseline calculation
         await this.calculateBaselines();
-        
+
         // Start monitoring loop - check every 30 seconds
-        this.monitoringInterval = setInterval(async () => {
+        this.monitoringInterval = setInterval(async() => {
             try {
                 await this.performSecurityChecks();
             } catch (error) {
                 this.logger.error('Watchdog monitoring error:', error);
             }
         }, 30000);
-        
+
         this.logger.info('✅ Dogecoin network watchdog started');
     }
 
     stopMonitoring() {
-        if (!this.isMonitoring) return;
-        
+        if (!this.isMonitoring) {
+return;
+}
+
         this.isMonitoring = false;
         if (this.monitoringInterval) {
             clearInterval(this.monitoringInterval);
             this.monitoringInterval = null;
         }
-        
+
         this.logger.info('🛑 Dogecoin network watchdog stopped');
     }
 
     async calculateBaselines() {
         try {
             this.logger.info('📊 Calculating network baselines...');
-            
+
             // Wait for node to be ready with retry logic
             let retries = 0;
             const maxRetries = 10;
             let nodeReady = false;
-            
+
             while (!nodeReady && retries < maxRetries) {
                 try {
                     await this.rpcCall('getblockchaininfo');
@@ -90,32 +94,31 @@ class DogecoinWatchdog {
                     await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
                 }
             }
-            
+
             if (!nodeReady) {
                 throw new Error('Dogecoin node not ready after maximum retries');
             }
-            
+
             // Get blockchain info for difficulty and hash rate
             const blockchainInfo = await this.rpcCall('getblockchaininfo');
             const networkInfo = await this.rpcCall('getnetworkinfo');
             const mempoolInfo = await this.rpcCall('getmempoolinfo');
-            
+
             // Calculate network hash rate from difficulty
             const hashRate = this.calculateHashRate(blockchainInfo.difficulty);
-            
+
             // Get recent block times
             const recentBlocks = await this.rpcCall('getblockcount');
             const blockTimes = await this.getRecentBlockTimes(recentBlocks, 100);
-            
+
             this.baselines = {
                 avgHashRate: hashRate,
                 avgBlockTime: this.calculateAverage(blockTimes),
                 avgDifficulty: blockchainInfo.difficulty,
                 avgMempoolSize: mempoolInfo.size
             };
-            
+
             this.logger.info('📈 Baselines calculated:', this.baselines);
-            
         } catch (error) {
             this.logger.error('Failed to calculate baselines:', error.message);
             // Don't throw here to allow monitoring to continue
@@ -125,7 +128,7 @@ class DogecoinWatchdog {
     async performSecurityChecks() {
         const timestamp = new Date();
         const checks = [];
-        
+
         try {
             // Gather current network state
             const [blockchainInfo, networkInfo, mempoolInfo, peerInfo] = await Promise.all([
@@ -139,7 +142,7 @@ class DogecoinWatchdog {
             const currentHashRate = this.calculateHashRate(blockchainInfo.difficulty);
             checks.push(await this.checkHashRateAnomaly(currentHashRate, timestamp));
 
-            // 2. Difficulty Monitoring  
+            // 2. Difficulty Monitoring
             checks.push(await this.checkDifficultyAnomaly(blockchainInfo.difficulty, timestamp));
 
             // 3. Block Time Monitoring
@@ -165,7 +168,6 @@ class DogecoinWatchdog {
 
             // Update metrics
             this.updateMetrics(currentHashRate, blockchainInfo.difficulty, mempoolInfo, timestamp);
-
         } catch (error) {
             this.logger.error('Security check failed:', error);
             this.addAlert('SYSTEM_ERROR', 'CRITICAL', 'Watchdog system error: ' + error.message, timestamp);
@@ -173,10 +175,12 @@ class DogecoinWatchdog {
     }
 
     async checkHashRateAnomaly(currentHashRate, timestamp) {
-        if (!this.baselines.avgHashRate) return { alert: false };
+        if (!this.baselines.avgHashRate) {
+return { alert: false };
+}
 
         const ratio = currentHashRate / this.baselines.avgHashRate;
-        
+
         if (ratio >= this.thresholds.hashRateSpike) {
             return {
                 alert: true,
@@ -186,7 +190,7 @@ class DogecoinWatchdog {
                 data: { currentHashRate, baselineHashRate: this.baselines.avgHashRate, ratio }
             };
         }
-        
+
         if (ratio <= this.thresholds.hashRateDrop) {
             return {
                 alert: true,
@@ -201,10 +205,12 @@ class DogecoinWatchdog {
     }
 
     async checkDifficultyAnomaly(currentDifficulty, timestamp) {
-        if (!this.baselines.avgDifficulty) return { alert: false };
+        if (!this.baselines.avgDifficulty) {
+return { alert: false };
+}
 
         const ratio = currentDifficulty / this.baselines.avgDifficulty;
-        
+
         if (ratio >= this.thresholds.difficultySpike) {
             return {
                 alert: true,
@@ -223,9 +229,9 @@ class DogecoinWatchdog {
             // Get last 10 blocks for recent timing analysis
             const recentBlockTimes = await this.getRecentBlockTimes(currentBlock, 10);
             const avgRecentBlockTime = this.calculateAverage(recentBlockTimes);
-            
+
             const ratio = Math.abs(avgRecentBlockTime - this.baselines.avgBlockTime) / this.baselines.avgBlockTime;
-            
+
             if (ratio >= this.thresholds.blockTimeAnomaly) {
                 return {
                     alert: true,
@@ -305,13 +311,13 @@ class DogecoinWatchdog {
 
     analyzePeerPatterns(peerInfo) {
         const suspicious = [];
-        
+
         // Look for peers with suspicious characteristics
         peerInfo.forEach(peer => {
             // Multiple connections from same subnet
             // High byte ratios (potential attack traffic)
             // Very new connections with high activity
-            
+
             if (peer.bytessent > 1000000 && peer.bytesrecv < 100000) {
                 suspicious.push({
                     addr: peer.addr,
@@ -321,7 +327,7 @@ class DogecoinWatchdog {
                 });
             }
         });
-        
+
         return suspicious;
     }
 
@@ -341,16 +347,16 @@ class DogecoinWatchdog {
             data,
             acknowledged: false
         };
-        
+
         this.alerts.unshift(alert);
-        
+
         // Keep only last 100 alerts
         if (this.alerts.length > 100) {
             this.alerts = this.alerts.slice(0, 100);
         }
-        
+
         this.logger.warn(`WATCHDOG ALERT [${severity}] ${type}: ${message}`);
-        
+
         // TODO: Add external notification (webhook, email, etc.)
         this.notifyExternal(alert);
     }
@@ -366,7 +372,7 @@ class DogecoinWatchdog {
         this.metrics.hashRate.push({ value: hashRate, timestamp });
         this.metrics.difficulty.push({ value: difficulty, timestamp });
         this.metrics.mempool.push({ value: mempoolInfo.size, timestamp });
-        
+
         // Keep only last 1000 data points
         Object.keys(this.metrics).forEach(key => {
             if (Array.isArray(this.metrics[key]) && this.metrics[key].length > 1000) {
@@ -382,34 +388,42 @@ class DogecoinWatchdog {
     }
 
     formatHashRate(hashRate) {
-        if (hashRate >= 1e12) return `${(hashRate / 1e12).toFixed(2)} TH/s`;
-        if (hashRate >= 1e9) return `${(hashRate / 1e9).toFixed(2)} GH/s`;
-        if (hashRate >= 1e6) return `${(hashRate / 1e6).toFixed(2)} MH/s`;
+        if (hashRate >= 1e12) {
+return `${(hashRate / 1e12).toFixed(2)} TH/s`;
+}
+        if (hashRate >= 1e9) {
+return `${(hashRate / 1e9).toFixed(2)} GH/s`;
+}
+        if (hashRate >= 1e6) {
+return `${(hashRate / 1e6).toFixed(2)} MH/s`;
+}
         return `${hashRate.toFixed(2)} H/s`;
     }
 
     async getRecentBlockTimes(currentBlock, count) {
         const blockTimes = [];
-        
+
         for (let i = 0; i < count - 1; i++) {
             try {
                 const blockHash1 = await this.rpcCall('getblockhash', [currentBlock - i]);
                 const blockHash2 = await this.rpcCall('getblockhash', [currentBlock - i - 1]);
-                
+
                 const block1 = await this.rpcCall('getblock', [blockHash1]);
                 const block2 = await this.rpcCall('getblock', [blockHash2]);
-                
+
                 blockTimes.push(block1.time - block2.time);
             } catch (error) {
                 this.logger.error(`Failed to get block time for block ${currentBlock - i}:`, error);
             }
         }
-        
+
         return blockTimes;
     }
 
     calculateAverage(values) {
-        if (!values.length) return 0;
+        if (!values.length) {
+return 0;
+}
         return values.reduce((sum, val) => sum + val, 0) / values.length;
     }
 
@@ -420,7 +434,7 @@ class DogecoinWatchdog {
                 username: this.rpc.user,
                 password: this.rpc.password
             };
-            
+
             const response = await axios.post(`http://localhost:${this.rpc.port}`, {
                 jsonrpc: '1.0',
                 id: 'watchdog',
@@ -482,12 +496,14 @@ class DogecoinWatchdog {
     }
 
     calculateTrend(dataPoints) {
-        if (dataPoints.length < 2) return 0;
-        
+        if (dataPoints.length < 2) {
+return 0;
+}
+
         const recent = dataPoints.slice(-10);
         const first = recent[0].value;
         const last = recent[recent.length - 1].value;
-        
+
         return ((last - first) / first) * 100; // Percentage change
     }
 }

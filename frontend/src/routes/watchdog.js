@@ -40,7 +40,7 @@ const requireWatchdog = (req, res, next) => {
  */
 const handleWatchdogError = (res, error, operation) => {
     logger.error(`${operation} failed`, { error: error.message });
-    
+
     return res.status(500).json({
         error: 'WATCHDOG_ERROR',
         message: error.message,
@@ -55,7 +55,7 @@ const handleWatchdogError = (res, error, operation) => {
 router.get('/status', requireWatchdog, (req, res) => {
     try {
         const status = watchdogService.getStatus();
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -73,7 +73,7 @@ router.get('/status', requireWatchdog, (req, res) => {
 router.get('/metrics', requireWatchdog, (req, res) => {
     try {
         const metrics = watchdogService.getMetrics();
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -91,9 +91,9 @@ router.get('/metrics', requireWatchdog, (req, res) => {
 router.get('/alerts', requireWatchdog, (req, res) => {
     try {
         const { limit = 50, severity, acknowledged } = req.query;
-        
+
         let alerts = watchdogService.getRecentAlerts(parseInt(limit));
-        
+
         // Filter by severity if specified
         if (severity) {
             const validSeverities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -101,13 +101,13 @@ router.get('/alerts', requireWatchdog, (req, res) => {
                 alerts = alerts.filter(alert => alert.severity === severity.toUpperCase());
             }
         }
-        
+
         // Filter by acknowledged status if specified
         if (acknowledged !== undefined) {
             const isAcknowledged = acknowledged === 'true';
             alerts = alerts.filter(alert => alert.acknowledged === isAcknowledged);
         }
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -129,16 +129,16 @@ router.get('/alerts', requireWatchdog, (req, res) => {
 router.post('/alerts/:alertId/acknowledge', requireWatchdog, (req, res) => {
     try {
         const { alertId } = req.params;
-        
+
         if (!alertId) {
             return res.status(400).json({
                 error: 'INVALID_PARAMETER',
                 message: 'Alert ID is required'
             });
         }
-        
+
         const acknowledged = watchdogService.acknowledgeAlert(alertId);
-        
+
         if (acknowledged) {
             res.json({
                 status: 'success',
@@ -162,7 +162,7 @@ router.post('/alerts/:alertId/acknowledge', requireWatchdog, (req, res) => {
  * POST /api/watchdog/start
  * Starts the watchdog monitoring
  */
-router.post('/start', requireWatchdog, async (req, res) => {
+router.post('/start', requireWatchdog, async(req, res) => {
     try {
         if (watchdogService.isMonitoring) {
             return res.status(409).json({
@@ -170,9 +170,9 @@ router.post('/start', requireWatchdog, async (req, res) => {
                 message: 'Watchdog is already monitoring'
             });
         }
-        
+
         await watchdogService.startMonitoring();
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -195,9 +195,9 @@ router.post('/stop', requireWatchdog, (req, res) => {
                 message: 'Watchdog is not currently monitoring'
             });
         }
-        
+
         watchdogService.stopMonitoring();
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -212,7 +212,7 @@ router.post('/stop', requireWatchdog, (req, res) => {
  * POST /api/watchdog/recalculate-baselines
  * Recalculates network baselines for anomaly detection
  */
-router.post('/recalculate-baselines', requireWatchdog, async (req, res) => {
+router.post('/recalculate-baselines', requireWatchdog, async(req, res) => {
     try {
         if (!watchdogService.isMonitoring) {
             return res.status(409).json({
@@ -220,11 +220,11 @@ router.post('/recalculate-baselines', requireWatchdog, async (req, res) => {
                 message: 'Watchdog must be monitoring to recalculate baselines'
             });
         }
-        
+
         await watchdogService.calculateBaselines();
-        
+
         const status = watchdogService.getStatus();
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -245,7 +245,7 @@ router.post('/recalculate-baselines', requireWatchdog, async (req, res) => {
 router.get('/configuration', requireWatchdog, (req, res) => {
     try {
         const status = watchdogService.getStatus();
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -268,7 +268,7 @@ router.get('/health', requireWatchdog, (req, res) => {
     try {
         const status = watchdogService.getStatus();
         const isHealthy = watchdogService.isMonitoring && status.status !== 'OFFLINE';
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
@@ -291,7 +291,7 @@ router.get('/health', requireWatchdog, (req, res) => {
 router.get('/alerts/summary', requireWatchdog, (req, res) => {
     try {
         const allAlerts = watchdogService.getRecentAlerts(1000);
-        
+
         const summary = {
             total: allAlerts.length,
             bySeverity: {
@@ -306,12 +306,12 @@ router.get('/alerts/summary', requireWatchdog, (req, res) => {
             },
             byType: {}
         };
-        
+
         // Count by alert type
         allAlerts.forEach(alert => {
             summary.byType[alert.type] = (summary.byType[alert.type] || 0) + 1;
         });
-        
+
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
