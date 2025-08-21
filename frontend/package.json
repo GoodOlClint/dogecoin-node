@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1",
-    "eslint": "^8.57.0",
+    "eslint": "^9.33.0",
     "@microsoft/eslint-formatter-sarif": "^3.0.0",
     "license-checker": "^25.0.1"
   },
