@@ -73,7 +73,7 @@ const config = {
  * Validates the configuration
  * @throws {Error} If configuration is invalid
  */
-function validateConfig() {
+const validateConfig = () => {
     const required = [
         'server.port',
         'rpc.host',

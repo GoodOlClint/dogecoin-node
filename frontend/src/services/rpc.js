@@ -5,9 +5,20 @@
 
 const axios = require('axios');
 const fs = require('fs');
-const path = require('path');
 const config = require('../config');
 const { createChildLogger } = require('../utils/logger');
+
+/**
+ * Custom RPC Error class
+ */
+class RPCError extends Error {
+    constructor(message, code, method) {
+        super(message);
+        this.name = 'RPCError';
+        this.code = code;
+        this.method = method;
+    }
+}
 
 class DogecoinRPCService {
     constructor() {
@@ -228,18 +239,6 @@ class DogecoinRPCService {
      */
     async getNetworkHashPS(blocks = 120) {
         return await this.call('getnetworkhashps', [blocks]);
-    }
-}
-
-/**
- * Custom RPC Error class
- */
-class RPCError extends Error {
-    constructor(message, code, method) {
-        super(message);
-        this.name = 'RPCError';
-        this.code = code;
-        this.method = method;
     }
 }
 

@@ -12,7 +12,7 @@ const logger = createChildLogger({ service: 'error-middleware' });
  * Global error handler middleware
  * Must be used as the last middleware in the chain
  */
-const errorHandler = (err, req, res, next) => {
+const errorHandler = (err, req, res, _next) => {
     // Log the error with context
     logger.error('Unhandled error in request', {
         error: err.message,
@@ -81,7 +81,7 @@ const errorHandler = (err, req, res, next) => {
  * 404 Not Found handler
  * Should be used before the global error handler
  */
-const notFoundHandler = (req, res, next) => {
+const notFoundHandler = (req, res, _next) => {
     logger.warn('Route not found', {
         method: req.method,
         url: req.url,

@@ -110,7 +110,7 @@ const validateInput = (req, res, next) => {
         /(javascript:|data:)/i,
         /(union.*select|select.*from)/i,
         /(drop|delete|insert|update).*table/i,
-        /(\|\||&&|\$\(|\`)/
+        /(\|\||&&|\$\(|`)/
     ];
 
     const checkForSuspiciousContent = (obj, path = '') => {
