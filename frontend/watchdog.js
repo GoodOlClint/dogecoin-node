@@ -1,4 +1,3 @@
-const winston = require('winston');
 const axios = require('axios');
 
 class DogecoinWatchdog {
@@ -88,7 +87,7 @@ return;
                 try {
                     await this.rpcCall('getblockchaininfo');
                     nodeReady = true;
-                } catch (error) {
+                } catch {
                     retries++;
                     this.logger.info(`Waiting for Dogecoin node to be ready... (attempt ${retries}/${maxRetries})`);
                     await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
@@ -101,7 +100,6 @@ return;
 
             // Get blockchain info for difficulty and hash rate
             const blockchainInfo = await this.rpcCall('getblockchaininfo');
-            const networkInfo = await this.rpcCall('getnetworkinfo');
             const mempoolInfo = await this.rpcCall('getmempoolinfo');
 
             // Calculate network hash rate from difficulty
@@ -140,25 +138,25 @@ return;
 
             // 1. Hash Rate Monitoring
             const currentHashRate = this.calculateHashRate(blockchainInfo.difficulty);
-            checks.push(await this.checkHashRateAnomaly(currentHashRate, timestamp));
+            checks.push(await this.checkHashRateAnomaly(currentHashRate));
 
             // 2. Difficulty Monitoring
-            checks.push(await this.checkDifficultyAnomaly(blockchainInfo.difficulty, timestamp));
+            checks.push(await this.checkDifficultyAnomaly(blockchainInfo.difficulty));
 
             // 3. Block Time Monitoring
-            checks.push(await this.checkBlockTimeAnomaly(blockchainInfo.blocks, timestamp));
+            checks.push(await this.checkBlockTimeAnomaly(blockchainInfo.blocks));
 
             // 4. Mempool Monitoring
-            checks.push(await this.checkMempoolAnomaly(mempoolInfo, timestamp));
+            checks.push(await this.checkMempoolAnomaly(mempoolInfo));
 
             // 5. Network Node Monitoring
-            checks.push(await this.checkNetworkNodeAnomaly(networkInfo.connections, peerInfo, timestamp));
+            checks.push(await this.checkNetworkNodeAnomaly(networkInfo.connections, peerInfo));
 
             // 6. Orphan Block Monitoring
-            checks.push(await this.checkOrphanBlocks(blockchainInfo.blocks, timestamp));
+            checks.push(await this.checkOrphanBlocks());
 
             // 7. Fork Detection
-            checks.push(await this.checkForForks(blockchainInfo, timestamp));
+            checks.push(await this.checkForForks(blockchainInfo));
 
             // Process alerts
             const activeAlerts = checks.filter(check => check.alert);
@@ -174,7 +172,7 @@ return;
         }
     }
 
-    async checkHashRateAnomaly(currentHashRate, timestamp) {
+    async checkHashRateAnomaly(currentHashRate) {
         if (!this.baselines.avgHashRate) {
 return { alert: false };
 }
@@ -204,7 +202,7 @@ return { alert: false };
         return { alert: false };
     }
 
-    async checkDifficultyAnomaly(currentDifficulty, timestamp) {
+    async checkDifficultyAnomaly(currentDifficulty) {
         if (!this.baselines.avgDifficulty) {
 return { alert: false };
 }
@@ -224,7 +222,7 @@ return { alert: false };
         return { alert: false };
     }
 
-    async checkBlockTimeAnomaly(currentBlock, timestamp) {
+    async checkBlockTimeAnomaly(currentBlock) {
         try {
             // Get last 10 blocks for recent timing analysis
             const recentBlockTimes = await this.getRecentBlockTimes(currentBlock, 10);
@@ -248,7 +246,7 @@ return { alert: false };
         return { alert: false };
     }
 
-    async checkMempoolAnomaly(mempoolInfo, timestamp) {
+    async checkMempoolAnomaly(mempoolInfo) {
         if (mempoolInfo.size >= this.thresholds.mempoolFlood) {
             return {
                 alert: true,
@@ -262,7 +260,7 @@ return { alert: false };
         return { alert: false };
     }
 
-    async checkNetworkNodeAnomaly(connections, peerInfo, timestamp) {
+    async checkNetworkNodeAnomaly(connections, peerInfo) {
         if (connections < this.thresholds.lowNodeCount) {
             return {
                 alert: true,
@@ -288,13 +286,13 @@ return { alert: false };
         return { alert: false };
     }
 
-    async checkOrphanBlocks(currentBlock, timestamp) {
+    async checkOrphanBlocks() {
         // This would require more sophisticated tracking of orphan blocks
         // For now, we'll implement a placeholder
         return { alert: false };
     }
 
-    async checkForForks(blockchainInfo, timestamp) {
+    async checkForForks(blockchainInfo) {
         // Check if we're behind other nodes (potential fork indicator)
         if (blockchainInfo.headers > blockchainInfo.blocks + 5) {
             return {
