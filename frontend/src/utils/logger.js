@@ -11,7 +11,7 @@ const fs = require('fs');
  * Creates the main application logger with proper configuration
  * @returns {winston.Logger} Configured logger instance
  */
-function createLogger() {
+const createLogger = () => {
     // Determine log directory based on environment
     const logDir = process.env.LOG_DIR || (
         process.env.NODE_ENV === 'production' ? '/app/logs' : './logs'
@@ -104,21 +104,24 @@ function createLogger() {
             ] : [])
         ]
     });
-}
+};
+
+// Create the main logger instance
+const logger = createLogger();
 
 /**
  * Creates a child logger with additional context
  * @param {Object} context - Additional context for the logger
  * @returns {winston.Logger} Child logger instance
  */
-function createChildLogger(context = {}) {
+const createChildLogger = (context = {}) => {
     return logger.child(context);
-}
+};
 
 /**
  * Logs application startup information
  */
-function logStartup() {
+const logStartup = () => {
     logger.info('Starting Dogecoin Node Monitor', {
         version: require('../../package.json').version,
         nodeEnv: process.env.NODE_ENV || 'development',
@@ -128,10 +131,7 @@ function logStartup() {
         rpcPort: process.env.RPC_PORT || 22555,
         watchdogEnabled: process.env.WATCHDOG_ENABLED !== 'false'
     });
-}
-
-// Create the main logger instance
-const logger = createLogger();
+};
 
 module.exports = {
     logger,
