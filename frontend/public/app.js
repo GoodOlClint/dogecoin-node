@@ -301,15 +301,24 @@ return;
 
             this.updateUI(info);
 
-            // Load blocks
+            // Load blocks (non-blocking)
             console.log('Fetching /api/blocks/10...');
-            const blocksResponse = await fetch('/api/blocks/10');
-            if (!blocksResponse.ok) {
-                throw new Error(`Blocks API failed: ${blocksResponse.status} ${blocksResponse.statusText}`);
+            try {
+                const blocksResponse = await fetch('/api/blocks/10', { 
+                    signal: AbortSignal.timeout(15000) // 15 second timeout
+                });
+                if (blocksResponse.ok) {
+                    const blocks = await blocksResponse.json();
+                    console.log('Blocks data received:', blocks.length, 'blocks');
+                    this.updateBlocksTable(blocks);
+                } else {
+                    console.warn(`Blocks API failed: ${blocksResponse.status} ${blocksResponse.statusText}`);
+                    this.showBlocksUnavailable('API returned error status');
+                }
+            } catch (error) {
+                console.warn('Blocks API timeout or error:', error.message);
+                this.showBlocksUnavailable('Still syncing - blocks unavailable');
             }
-            const blocks = await blocksResponse.json();
-            console.log('Blocks data received:', blocks.length, 'blocks');
-            this.updateBlocksTable(blocks);
 
             // Load peers
             console.log('Fetching /api/peers...');
@@ -539,6 +548,11 @@ return;
             `;
             tbody.appendChild(row);
         });
+    }
+
+    showBlocksUnavailable(reason) {
+        const tbody = document.getElementById('blocks-tbody');
+        tbody.innerHTML = `<tr><td colspan="5" class="loading">Blocks unavailable: ${reason}</td></tr>`;
     }
 
     updatePeersTable(peers) {

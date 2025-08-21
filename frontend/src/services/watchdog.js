@@ -387,6 +387,12 @@ return;
      */
     async check51PercentAttack(currentData) {
         try {
+            // Skip all 51% attack checks if node is still in initial block download
+            if (currentData.blockchain?.initialblockdownload) {
+                this.logger.debug('Skipping 51% attack checks - node is still in initial sync');
+                return;
+            }
+
             // Skip if no baseline established
             if (!this.baselines.avgBlockTime || this.baselines.avgBlockTime <= 0) {
                 return;
@@ -665,7 +671,7 @@ return;
      * @returns {string} Unique alert ID
      */
     generateAlertId() {
-        return `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `alert_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     }
 
     /**
