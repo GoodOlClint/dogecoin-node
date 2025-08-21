@@ -200,7 +200,9 @@ class DogecoinMonitor {
             try {
                 message = JSON.parse(event.data);
                 // Log only safe metadata, not raw user data
-                console.log('WebSocket message received, type:', message.type || 'unknown');
+                // Sanitize message.type to prevent log injection
+                const safeType = (typeof message.type === 'string' ? message.type.replace(/[\n\r]/g, '') : 'unknown');
+                console.log('WebSocket message received, type (user input sanitized):', safeType);
             } catch {
                 console.log('WebSocket message received (invalid JSON)');
                 return; // Exit early if JSON is invalid
