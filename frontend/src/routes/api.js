@@ -7,9 +7,8 @@ const { createChildLogger } = require('../utils/logger');
 const { DogecoinRPCService, RPCError } = require('../services/rpc');
 const PeerEnrichmentService = require('../services/peerEnrichment');
 
-// eslint-disable-next-line new-cap
-const router = express.Router();
-// eslint-disable-next-line new-cap
+const createRouter = express.Router;
+const router = createRouter();
 const logger = createChildLogger({ service: 'api-routes' });
 
 /**
@@ -103,7 +102,7 @@ router.get('/info', async(req, res) => {
                 mediantime: nodeInfo.blockchain.mediantime,
                 verificationprogress: nodeInfo.blockchain.verificationprogress,
                 chainwork: nodeInfo.blockchain.chainwork,
-                size_on_disk: nodeInfo.blockchain.size_on_disk,
+                sizeOnDisk: nodeInfo.blockchain.size_on_disk,
                 chain: nodeInfo.blockchain.chain,
                 warnings: nodeInfo.blockchain.warnings || ''
             },
@@ -268,7 +267,7 @@ break;
                 time: block.time,
                 mediantime: block.mediantime,
                 size: block.size,
-                tx_count: block.tx.length,
+                txCount: block.tx.length,
                 difficulty: block.difficulty
             });
         }
