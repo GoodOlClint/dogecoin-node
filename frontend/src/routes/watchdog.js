@@ -92,7 +92,7 @@ router.get('/alerts', requireWatchdog, (req, res) => {
     try {
         const { limit = 50, severity, acknowledged } = req.query;
 
-        let alerts = watchdogService.getRecentAlerts(parseInt(limit));
+        let alerts = watchdogService.getRecentAlerts(parseInt(limit, 10));
 
         // Filter by severity if specified
         if (severity) {
@@ -103,7 +103,7 @@ router.get('/alerts', requireWatchdog, (req, res) => {
         }
 
         // Filter by acknowledged status if specified
-        if (acknowledged !== undefined) {
+        if (typeof acknowledged !== 'undefined') {
             const isAcknowledged = acknowledged === 'true';
             alerts = alerts.filter(alert => alert.acknowledged === isAcknowledged);
         }
@@ -111,7 +111,7 @@ router.get('/alerts', requireWatchdog, (req, res) => {
         res.json({
             status: 'success',
             timestamp: new Date().toISOString(),
-            filters: { limit: parseInt(limit), severity, acknowledged },
+            filters: { limit: parseInt(limit, 10), severity, acknowledged },
             data: {
                 count: alerts.length,
                 alerts

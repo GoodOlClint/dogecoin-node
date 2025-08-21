@@ -236,7 +236,7 @@ router.get('/peers', async(req, res) => {
  */
 router.get('/blocks/:count', async(req, res) => {
     try {
-        const count = parseInt(req.params.count);
+        const count = parseInt(req.params.count, 10);
 
         if (isNaN(count) || count < 1 || count > 100) {
             return res.status(400).json({
@@ -312,7 +312,7 @@ router.get('/block/:hash', async(req, res) => {
  */
 router.get('/block/height/:height', async(req, res) => {
     try {
-        const height = parseInt(req.params.height);
+        const height = parseInt(req.params.height, 10);
 
         if (isNaN(height) || height < 0) {
             return res.status(400).json({

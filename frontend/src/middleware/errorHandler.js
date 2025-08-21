@@ -31,7 +31,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(503).json({
             error: 'RPC_ERROR',
             message: 'Dogecoin node communication error',
-            details: isDevelopment ? err.message : undefined,
+            details: isDevelopment ? err.message : null,
             code: err.code,
             method: err.method,
             timestamp: new Date().toISOString()
@@ -43,7 +43,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(400).json({
             error: 'VALIDATION_ERROR',
             message: 'Request validation failed',
-            details: isDevelopment ? err.message : undefined,
+            details: isDevelopment ? err.message : null,
             timestamp: new Date().toISOString()
         });
     }
@@ -53,7 +53,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(400).json({
             error: 'SYNTAX_ERROR',
             message: 'Malformed request body',
-            details: isDevelopment ? err.message : undefined,
+            details: isDevelopment ? err.message : null,
             timestamp: new Date().toISOString()
         });
     }
@@ -63,7 +63,7 @@ const errorHandler = (err, req, res, next) => {
         return res.status(504).json({
             error: 'TIMEOUT_ERROR',
             message: 'Request timeout',
-            details: isDevelopment ? err.message : undefined,
+            details: isDevelopment ? err.message : null,
             timestamp: new Date().toISOString()
         });
     }
@@ -72,7 +72,7 @@ const errorHandler = (err, req, res, next) => {
     res.status(err.status || 500).json({
         error: 'INTERNAL_SERVER_ERROR',
         message: isDevelopment ? err.message : 'An unexpected error occurred',
-        details: isDevelopment ? err.stack : undefined,
+        details: isDevelopment ? err.stack : null,
         timestamp: new Date().toISOString()
     });
 };

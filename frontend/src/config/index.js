@@ -15,28 +15,28 @@ const config = {
     // Dogecoin RPC Configuration
     rpc: {
         host: process.env.DOGECOIN_RPC_HOST || 'localhost',
-        port: parseInt(process.env.DOGECOIN_RPC_PORT) || 22555,
+        port: parseInt(process.env.DOGECOIN_RPC_PORT, 10) || 22555,
         cookiePath: process.env.DOGECOIN_COOKIE_PATH || '/data/.cookie',
-        timeout: parseInt(process.env.RPC_TIMEOUT) || 30000,
-        maxRetries: parseInt(process.env.RPC_MAX_RETRIES) || 10,
-        retryDelay: parseInt(process.env.RPC_RETRY_DELAY) || 3000
+        timeout: parseInt(process.env.RPC_TIMEOUT, 10) || 30000,
+        maxRetries: parseInt(process.env.RPC_MAX_RETRIES, 10) || 10,
+        retryDelay: parseInt(process.env.RPC_RETRY_DELAY, 10) || 3000
     },
 
     // Logging configuration
     logging: {
         level: process.env.LOG_LEVEL || 'info',
         dir: process.env.LOG_DIR || (process.env.NODE_ENV === 'production' ? '/app/logs' : './logs'),
-        maxSize: parseInt(process.env.LOG_MAX_SIZE) || 10 * 1024 * 1024, // 10MB
-        maxFiles: parseInt(process.env.LOG_MAX_FILES) || 5
+        maxSize: parseInt(process.env.LOG_MAX_SIZE, 10) || 10 * 1024 * 1024, // 10MB
+        maxFiles: parseInt(process.env.LOG_MAX_FILES, 10) || 5
     },
 
     // Watchdog Configuration
     watchdog: {
         enabled: process.env.WATCHDOG_ENABLED !== 'false',
-        startupDelay: parseInt(process.env.WATCHDOG_STARTUP_DELAY) || 10000,
-        monitoringInterval: parseInt(process.env.WATCHDOG_INTERVAL) || 30000,
-        maxBaselineRetries: parseInt(process.env.WATCHDOG_MAX_RETRIES) || 10,
-        baselineRetryDelay: parseInt(process.env.WATCHDOG_RETRY_DELAY) || 3000,
+        startupDelay: parseInt(process.env.WATCHDOG_STARTUP_DELAY, 10) || 10000,
+        monitoringInterval: parseInt(process.env.WATCHDOG_INTERVAL, 10) || 30000,
+        maxBaselineRetries: parseInt(process.env.WATCHDOG_MAX_RETRIES, 10) || 10,
+        baselineRetryDelay: parseInt(process.env.WATCHDOG_RETRY_DELAY, 10) || 3000,
 
         // Security thresholds
         thresholds: {
@@ -44,22 +44,22 @@ const config = {
             hashRateDrop: parseFloat(process.env.WATCHDOG_HASH_DROP) || 0.3,
             blockTimeAnomaly: parseFloat(process.env.WATCHDOG_BLOCK_TIME) || 3.0,
             difficultySpike: parseFloat(process.env.WATCHDOG_DIFFICULTY) || 3.0,
-            mempoolFlood: parseInt(process.env.WATCHDOG_MEMPOOL) || 10000,
-            lowNodeCount: parseInt(process.env.WATCHDOG_NODE_COUNT) || 5,
-            orphanBlockThreshold: parseInt(process.env.WATCHDOG_ORPHAN) || 5
+            mempoolFlood: parseInt(process.env.WATCHDOG_MEMPOOL, 10) || 10000,
+            lowNodeCount: parseInt(process.env.WATCHDOG_NODE_COUNT, 10) || 5,
+            orphanBlockThreshold: parseInt(process.env.WATCHDOG_ORPHAN, 10) || 5
         }
     },
 
     // WebSocket Configuration
     websocket: {
-        heartbeatInterval: parseInt(process.env.WS_HEARTBEAT) || 30000,
-        maxConnections: parseInt(process.env.WS_MAX_CONNECTIONS) || 100
+        heartbeatInterval: parseInt(process.env.WS_HEARTBEAT, 10) || 30000,
+        maxConnections: parseInt(process.env.WS_MAX_CONNECTIONS, 10) || 100
     },
 
     // Rate Limiting
     rateLimit: {
-        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) || 15 * 60 * 1000, // 15 minutes
-        maxRequests: parseInt(process.env.RATE_LIMIT_MAX) || 100
+        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW, 10) || 15 * 60 * 1000, // 15 minutes
+        maxRequests: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100
     },
 
     // CORS Configuration
@@ -82,7 +82,7 @@ function validateConfig() {
 
     for (const key of required) {
         const value = key.split('.').reduce((obj, k) => obj?.[k], config);
-        if (value === undefined || value === null) {
+        if (typeof value === 'undefined' || value === null) {
             throw new Error(`Required configuration missing: ${key}`);
         }
     }
