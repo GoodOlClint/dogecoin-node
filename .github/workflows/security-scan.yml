@@ -98,7 +98,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif-file: hadolint-results.sarif
+          sarif_file: hadolint-results.sarif
 
       # Docker Image Security Scanning
       - name: Build Docker image for scanning
@@ -116,7 +116,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif-file: 'trivy-results.sarif'
+          sarif_file: 'trivy-results.sarif'
 
       # License Compliance Check
       - name: License compliance check
@@ -164,7 +164,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif-file: frontend/eslint-results.sarif
+          sarif_file: frontend/eslint-results.sarif
 
       # SonarCloud Analysis (if token is available)
       - name: SonarCloud Scan
