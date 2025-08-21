@@ -1,0 +1,112 @@
+# Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Monitor npm dependencies in frontend
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "GoodOlClint"
+    assignees:
+      - "GoodOlClint"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "security"
+      - "npm"
+    # Group minor and patch updates together to reduce PR noise
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group security updates separately for priority handling
+      security-updates:
+        patterns:
+          - "*"
+        dependency-type: "production"
+        update-types:
+          - "security"
+    # Allow automatic security updates
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    # Enable security-only updates for production dependencies
+    target-branch: "main"
+    # Ignore specific packages if needed (example configurations)
+    ignore:
+      # Ignore major version updates for critical stable packages
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "winston"
+        update-types: ["version-update:semver-major"]
+
+  # Monitor Docker base images for security updates
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "GoodOlClint"
+    assignees:
+      - "GoodOlClint"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "docker"
+      - "security"
+      - "infrastructure"
+    target-branch: "main"
+
+  # Monitor GitHub Actions for security and feature updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "GoodOlClint"
+    assignees:
+      - "GoodOlClint"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "github-actions"
+      - "ci/cd"
+      - "security"
+    target-branch: "main"
+    # Group all GitHub Actions updates together
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Separate group for major updates that need more review
+      github-actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
