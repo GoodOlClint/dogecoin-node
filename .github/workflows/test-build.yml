@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - 'Dockerfile.monitor'
+      - 'Dockerfile'
       - 'frontend/**'
       - '.github/workflows/**'
 
@@ -22,7 +22,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.monitor
+          file: ./Dockerfile
           platforms: linux/amd64
           push: false
           cache-from: type=gha
