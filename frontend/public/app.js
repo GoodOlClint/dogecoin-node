@@ -195,14 +195,17 @@ class DogecoinMonitor {
         };
 
         this.ws.onmessage = (event) => {
-            // Log only message type for security, not raw user data
+            // Parse and validate message securely
+            let message;
             try {
-                const message = JSON.parse(event.data);
+                message = JSON.parse(event.data);
+                // Log only safe metadata, not raw user data
                 console.log('WebSocket message received, type:', message.type || 'unknown');
             } catch {
                 console.log('WebSocket message received (invalid JSON)');
+                return; // Exit early if JSON is invalid
             }
-            const message = JSON.parse(event.data);
+            
             if (message.type === 'update') {
                 this.updateUI(message.data);
 
