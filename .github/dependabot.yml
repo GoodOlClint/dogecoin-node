@@ -32,13 +32,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-      # Group security updates separately for priority handling
-      security-updates:
-        patterns:
-          - "*"
-        dependency-type: "production"
-        update-types:
-          - "security"
     # Allow automatic security updates
     allow:
       - dependency-type: "direct"
