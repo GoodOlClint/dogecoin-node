@@ -218,10 +218,10 @@ class DogecoinMonitor {
 
         this.ws.onerror = (error) => {
             console.error('WebSocket error occurred:', error);
-            const statusElement = document.getElementById('connection-status');
-            if (statusElement) {
-                statusElement.textContent = 'Connection Failed';
-                statusElement.className = 'status disconnected';
+            const errorStatusElement = document.getElementById('connection-status');
+            if (errorStatusElement) {
+                errorStatusElement.textContent = 'Connection Failed';
+                errorStatusElement.className = 'status disconnected';
             }
         };
     }
@@ -552,7 +552,7 @@ return;
             const pingTime = peer.pingtime ? `${(peer.pingtime * 1000).toFixed(0)}ms` : 'N/A';
 
             // Extract version from subver
-            const version = peer.subver ? peer.subver.replace(/[\/\(\)]/g, '') : 'Unknown';
+            const version = peer.subver ? peer.subver.replace(/[/()]/g, '') : 'Unknown';
 
             // Format DNS information
             const dnsName = this.formatDNSName(peer.dns);
@@ -665,8 +665,15 @@ return;
         const alertCount = document.getElementById('alert-count');
         if (alertCount) {
             const count = watchdogData.alertCount || 0;
-            alertCount.textContent = count === 0 ? 'No alerts' :
-                                    count === 1 ? '1 alert' : `${count} alerts`;
+            let alertText;
+            if (count === 0) {
+                alertText = 'No alerts';
+            } else if (count === 1) {
+                alertText = '1 alert';
+            } else {
+                alertText = `${count} alerts`;
+            }
+            alertCount.textContent = alertText;
         }
 
         // Update alerts list
@@ -988,12 +995,15 @@ tooltip += `\nCoordinates: ${geo.coords}`;
 }
 
 // Global functions for UI interactions
-function dismissSecurityBanner() {
+const dismissSecurityBanner = () => {
     const banner = document.getElementById('security-alerts');
     if (banner) {
         banner.style.display = 'none';
     }
-}
+};
+
+// Make function available globally for HTML onclick
+window.dismissSecurityBanner = dismissSecurityBanner;
 
 // Initialize the monitor when the page loads
 document.addEventListener('DOMContentLoaded', () => {
