@@ -127,7 +127,6 @@ class DogecoinWatchdog extends EventEmitter {
 
             // Get current network state
             const nodeInfo = await this.rpc.getNodeInfo();
-            const peerInfo = await this.rpc.call('getpeerinfo');
 
             // Calculate hash rate from difficulty
             const hashRate = this.calculateHashRate(nodeInfo.blockchain.difficulty);
@@ -164,7 +163,7 @@ class DogecoinWatchdog extends EventEmitter {
                 await this.rpc.call('getblockchaininfo');
                 this.logger.debug('Node is ready');
                 return;
-            } catch (error) {
+            } catch {
                 if (attempt === maxRetries) {
                     throw new Error(`Dogecoin node not ready after ${maxRetries} attempts`);
                 }
@@ -394,7 +393,7 @@ return;
             }
 
             // 1. Check for deep reorganizations (primary 51% attack indicator)
-            await this.checkForDeepReorgs(currentData);
+            await this.checkForDeepReorgs();
 
             // 2. Analyze hashrate and difficulty anomalies
             await this.checkHashrateAnomalies(currentData);
@@ -403,7 +402,7 @@ return;
             await this.checkBlockTimingAnomalies(currentData);
 
             // 4. Monitor mempool volatility
-            await this.checkMempoolVolatility(currentData);
+            await this.checkMempoolVolatility();
         } catch (error) {
             this.logger.error('Failed to check for 51% attack', { error: error.message });
         }
@@ -412,7 +411,7 @@ return;
     /**
      * Check for deep reorganizations - primary 51% attack indicator
      */
-    async checkForDeepReorgs(currentData) {
+    async checkForDeepReorgs() {
         try {
             const chainTips = await this.rpc.getChainTips();
             const deepReorgs = chainTips.filter(tip =>
@@ -544,7 +543,6 @@ return;
 
             // Pattern: Long stall (20+ minutes) followed by very fast blocks
             if (maxGap > 1200 && avgRecentFast < 30) { // 20 min gap + 30s avg recent
-                const maxGapIndex = blockTimes.indexOf(maxGap);
                 const suspiciousBlocks = blockDetails.slice(0, 6); // Show more detail for this critical alert
 
                 this.createAlert(
@@ -591,7 +589,7 @@ return;
     /**
      * Monitor mempool for transaction volatility during attacks
      */
-    async checkMempoolVolatility(currentData) {
+    async checkMempoolVolatility() {
         try {
             const mempoolInfo = await this.rpc.getMempoolInfo();
             const mempoolSize = mempoolInfo.size;
