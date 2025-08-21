@@ -239,14 +239,23 @@ const corsHandler = (req, res, next) => {
 
     // For development, allow localhost
     if (process.env.NODE_ENV === 'development') {
-        res.setHeader('Access-Control-Allow-Origin', origin || '*');
+        // Define a whitelist of allowed origins for development
+        const devAllowedOrigins = [
+            'http://localhost:3000',
+            'http://127.0.0.1:3000',
+            'http://localhost:5173',
+            'http://127.0.0.1:5173'
+        ];
+        if (origin && devAllowedOrigins.includes(origin) && origin !== 'null') {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+        }
     } else {
         // In production, be more restrictive
         const allowedOrigins = process.env.ALLOWED_ORIGINS ?
             process.env.ALLOWED_ORIGINS.split(',') :
             [];
 
-        if (origin && allowedOrigins.includes(origin)) {
+        if (origin && allowedOrigins.includes(origin) && origin !== 'null') {
             res.setHeader('Access-Control-Allow-Origin', origin);
         }
     }
