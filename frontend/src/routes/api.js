@@ -7,7 +7,9 @@ const { createChildLogger } = require('../utils/logger');
 const { DogecoinRPCService, RPCError } = require('../services/rpc');
 const PeerEnrichmentService = require('../services/peerEnrichment');
 
+// eslint-disable-next-line new-cap
 const router = express.Router();
+// eslint-disable-next-line new-cap
 const logger = createChildLogger({ service: 'api-routes' });
 
 /**
@@ -246,7 +248,6 @@ router.get('/blocks/:count', async(req, res) => {
         }
 
         const rpc = initializeRPC();
-        const bestBlockHash = await rpc.call('getbestblockhash');
         const currentHeight = await rpc.call('getblockcount');
 
         const blocks = [];

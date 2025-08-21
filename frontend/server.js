@@ -336,6 +336,7 @@ return;
 
     // Broadcast watchdog updates to WebSocket clients
     watchdog.on('update', (data) => {
+        // eslint-disable-next-line no-use-before-define
         broadcastToClients('watchdog_update', data);
     });
 
@@ -346,11 +347,13 @@ return;
             message: alert.message
         });
 
+        // eslint-disable-next-line no-use-before-define
         broadcastToClients('new_alert', alert);
     });
 
     watchdog.on('started', () => {
         serverLogger.info('🔍 Watchdog monitoring started');
+        // eslint-disable-next-line no-use-before-define
         broadcastToClients('watchdog_started', {
             message: 'Security monitoring activated',
             timestamp: new Date().toISOString()
@@ -359,6 +362,7 @@ return;
 
     watchdog.on('stopped', () => {
         serverLogger.info('🛑 Watchdog monitoring stopped');
+        // eslint-disable-next-line no-use-before-define
         broadcastToClients('watchdog_stopped', {
             message: 'Security monitoring deactivated',
             timestamp: new Date().toISOString()
@@ -367,6 +371,7 @@ return;
 
     watchdog.on('error', (error) => {
         serverLogger.error('❌ Watchdog error', { error: error.message });
+        // eslint-disable-next-line no-use-before-define
         broadcastToClients('watchdog_error', {
             message: error.message,
             timestamp: new Date().toISOString()

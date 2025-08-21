@@ -5,7 +5,9 @@
 const express = require('express');
 const { createChildLogger } = require('../utils/logger');
 
+// eslint-disable-next-line new-cap
 const router = express.Router();
+// eslint-disable-next-line new-cap
 const logger = createChildLogger({ service: 'watchdog-routes' });
 
 /**
