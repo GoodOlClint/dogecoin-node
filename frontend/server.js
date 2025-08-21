@@ -4,14 +4,13 @@
  */
 
 const express = require('express');
-const cors = require('cors');
 const WebSocket = require('ws');
 const path = require('path');
 const http = require('http');
 
 // Import modular components
 const config = require('./src/config');
-const { logger, createChildLogger } = require('./src/utils/logger');
+const { createChildLogger } = require('./src/utils/logger');
 const { DogecoinRPCService } = require('./src/services/rpc');
 const DogecoinWatchdog = require('./src/services/watchdog');
 
@@ -23,7 +22,6 @@ const { router: watchdogRoutes, initializeWatchdog } = require('./src/routes/wat
 const {
     errorHandler,
     notFoundHandler,
-    asyncHandler,
     requestTimeout
 } = require('./src/middleware/errorHandler');
 const {
@@ -51,7 +49,7 @@ let wss; // WebSocket server
 /**
  * Initialize Application Services
  */
-async function initializeServices() {
+const initializeServices = async () => {
     try {
         serverLogger.info('🚀 Initializing services...');
 
@@ -83,7 +81,7 @@ async function initializeServices() {
 /**
  * Configure Express Application
  */
-function configureApp() {
+const configureApp = () => {
     serverLogger.info('🔧 Configuring Express application...');
 
     // Trust proxy for accurate IP addresses
@@ -120,7 +118,7 @@ function configureApp() {
 /**
  * Configure Routes
  */
-function configureRoutes() {
+const configureRoutes = () => {
     serverLogger.info('🛣️ Configuring routes...');
 
     // API routes
@@ -129,12 +127,18 @@ function configureRoutes() {
 
     // Health check endpoint (bypass rate limiting)
     app.get('/health', (req, res) => {
+        // Determine watchdog status
+        let watchdogStatus = 'not_initialized';
+        if (watchdog) {
+            watchdogStatus = watchdog.isMonitoring ? 'monitoring' : 'initialized';
+        }
+
         res.json({
             status: 'healthy',
             timestamp: new Date().toISOString(),
             services: {
                 rpc: rpcService ? 'initialized' : 'not_initialized',
-                watchdog: watchdog ? (watchdog.isMonitoring ? 'monitoring' : 'initialized') : 'not_initialized'
+                watchdog: watchdogStatus
             }
         });
     });
@@ -169,7 +173,7 @@ function configureRoutes() {
 /**
  * Initialize WebSocket Server
  */
-function initializeWebSocket() {
+const initializeWebSocket = () => {
     serverLogger.info('🔌 Initializing WebSocket server...');
 
     wss = new WebSocket.Server({
@@ -179,7 +183,7 @@ function initializeWebSocket() {
     });
 
     wss.on('connection', (ws, req) => {
-        const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
         ws.clientId = clientId;
 
         serverLogger.info('📱 WebSocket client connected', {
@@ -325,66 +329,9 @@ function initializeWebSocket() {
 }
 
 /**
- * Setup Watchdog Event Handlers
- */
-function setupWatchdogHandlers() {
-    if (!watchdog) {
-return;
-}
-
-    serverLogger.info('🔍 Setting up watchdog event handlers...');
-
-    // Broadcast watchdog updates to WebSocket clients
-    watchdog.on('update', (data) => {
-        // eslint-disable-next-line no-use-before-define
-        broadcastToClients('watchdog_update', data);
-    });
-
-    watchdog.on('alert', (alert) => {
-        serverLogger.warn('🚨 Watchdog alert', {
-            type: alert.type,
-            severity: alert.severity,
-            message: alert.message
-        });
-
-        // eslint-disable-next-line no-use-before-define
-        broadcastToClients('new_alert', alert);
-    });
-
-    watchdog.on('started', () => {
-        serverLogger.info('🔍 Watchdog monitoring started');
-        // eslint-disable-next-line no-use-before-define
-        broadcastToClients('watchdog_started', {
-            message: 'Security monitoring activated',
-            timestamp: new Date().toISOString()
-        });
-    });
-
-    watchdog.on('stopped', () => {
-        serverLogger.info('🛑 Watchdog monitoring stopped');
-        // eslint-disable-next-line no-use-before-define
-        broadcastToClients('watchdog_stopped', {
-            message: 'Security monitoring deactivated',
-            timestamp: new Date().toISOString()
-        });
-    });
-
-    watchdog.on('error', (error) => {
-        serverLogger.error('❌ Watchdog error', { error: error.message });
-        // eslint-disable-next-line no-use-before-define
-        broadcastToClients('watchdog_error', {
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    });
-
-    serverLogger.info('✅ Watchdog event handlers configured');
-}
-
-/**
  * Broadcast message to WebSocket clients
  */
-function broadcastToClients(type, data) {
+const broadcastToClients = (type, data) => {
     if (!wss) {
 return;
 }
@@ -414,9 +361,61 @@ return;
 }
 
 /**
+ * Setup Watchdog Event Handlers
+ */
+const setupWatchdogHandlers = () => {
+    if (!watchdog) {
+return;
+}
+
+    serverLogger.info('🔍 Setting up watchdog event handlers...');
+
+    // Broadcast watchdog updates to WebSocket clients
+    watchdog.on('update', (data) => {
+        broadcastToClients('watchdog_update', data);
+    });
+
+    watchdog.on('alert', (alert) => {
+        serverLogger.warn('🚨 Watchdog alert', {
+            type: alert.type,
+            severity: alert.severity,
+            message: alert.message
+        });
+
+        broadcastToClients('new_alert', alert);
+    });
+
+    watchdog.on('started', () => {
+        serverLogger.info('🔍 Watchdog monitoring started');
+        broadcastToClients('watchdog_started', {
+            message: 'Security monitoring activated',
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    watchdog.on('stopped', () => {
+        serverLogger.info('🛑 Watchdog monitoring stopped');
+        broadcastToClients('watchdog_stopped', {
+            message: 'Security monitoring deactivated',
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    watchdog.on('error', (error) => {
+        serverLogger.error('❌ Watchdog error', { error: error.message });
+        broadcastToClients('watchdog_error', {
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    serverLogger.info('✅ Watchdog event handlers configured');
+}
+
+/**
  * Start Watchdog Monitoring
  */
-async function startWatchdog() {
+const startWatchdog = async () => {
     if (!watchdog) {
         serverLogger.warn('⚠️ Watchdog service not initialized, skipping monitoring start');
         return;
@@ -438,7 +437,7 @@ async function startWatchdog() {
 /**
  * Graceful Shutdown Handler
  */
-function setupGracefulShutdown() {
+const setupGracefulShutdown = () => {
     const shutdown = async(signal) => {
         serverLogger.info(`🛑 Received ${signal}, starting graceful shutdown...`);
 
@@ -458,7 +457,7 @@ function setupGracefulShutdown() {
         }
 
         // Stop watchdog
-        if (watchdog && watchdog.isMonitoring) {
+        if (watchdog?.isMonitoring) {
             watchdog.stopMonitoring();
             serverLogger.info('✅ Watchdog monitoring stopped');
         }
@@ -474,7 +473,7 @@ function setupGracefulShutdown() {
 /**
  * Main Application Startup
  */
-async function startServer() {
+const startServer = async () => {
     try {
         serverLogger.info('🚀 Starting Dogecoin Node Monitoring Server...');
         serverLogger.info('📋 Configuration loaded', {
