@@ -45,25 +45,28 @@ COPY frontend/package*.json ./
 RUN npm install --only=production && npm cache clean --force
 COPY frontend/ .
 
-# Stage 3: Runtime image
-FROM node:24-bullseye-slim
+# Stage 3: Runtime image - Use newer Debian bookworm for security fixes
+FROM node:24-bookworm-slim
 
-# Install only essential runtime dependencies for Dogecoin
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Update package lists and upgrade all packages for security patches
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    libssl1.1 \
-    libevent-2.1-7 \
-    libboost-system1.74.0 \
-    libboost-filesystem1.74.0 \
+    libc6 \
     libboost-chrono1.74.0 \
+    libboost-filesystem1.74.0 \
     libboost-program-options1.74.0 \
+    libboost-system1.74.0 \
     libboost-thread1.74.0 \
     libdb5.3++ \
-    libc6 \
+    libevent-2.1-7 \
     libgcc-s1 \
+    libssl3 \
     libstdc++6 \
     libzmq5 \
+    zlib1g \
+    && echo "Verifying zlib version for CVE-2023-45853 fix:" \
+    && dpkg -l | grep zlib \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
