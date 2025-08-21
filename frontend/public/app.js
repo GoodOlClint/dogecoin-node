@@ -305,7 +305,7 @@ return;
             console.log('Fetching /api/blocks/10...');
             try {
                 const blocksResponse = await fetch('/api/blocks/10', { 
-                    signal: AbortSignal.timeout(15000) // 15 second timeout
+                    signal: this.getTimeoutSignal(15000) // 15 second timeout
                 });
                 if (blocksResponse.ok) {
                     const blocks = await blocksResponse.json();
