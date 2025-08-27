@@ -1,7 +1,7 @@
 # Multi-stage build for Dogecoin Node with Web Monitor
 
 # Stage 1: Download Dogecoin binaries
-FROM alpine:3.20 AS dogecoin-downloader
+FROM alpine:3.22 AS dogecoin-downloader
 
 # Set shell options for better error handling
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
