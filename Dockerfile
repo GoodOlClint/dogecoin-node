@@ -9,9 +9,9 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 # Install minimal tools for fetching latest release and downloading binaries
 RUN apk add --no-cache \
     ca-certificates=20250619-r0 \
-    curl=8.12.1-r0 \
-    jq=1.7.1-r0 \
-    tar=1.35-r2
+    curl=8.14.1-r1 \
+    jq=1.8.0-r0 \
+    tar=1.35-r3
 
 # Fetch latest Dogecoin release and download binaries
 WORKDIR /tmp
