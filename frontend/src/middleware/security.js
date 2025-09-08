@@ -22,14 +22,14 @@ const createRateLimiter = (options = {}) => {
         },
         standardHeaders: true,
         legacyHeaders: false,
-        handler: (req, res) => {
+        handler: (req, res, next, optionsUsed) => {
             logger.warn('Rate limit exceeded', {
                 ip: req.ip,
                 userAgent: req.get('User-Agent'),
                 url: req.url
             });
 
-            res.status(429).json(options.message || defaults.message);
+            res.status(429).json(optionsUsed?.message || options.message || defaults.message);
         }
     };
 
@@ -42,7 +42,7 @@ const createRateLimiter = (options = {}) => {
 const apiRateLimit = createRateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 500, // increased from 100 to 500 requests per window
-    trustProxy: 1, // Trust first proxy (Docker network)
+    trustProxy: false, // Do not trust proxy for rate limiting
     message: {
         error: 'RATE_LIMITED',
         message: 'Too many API requests, please try again later',
