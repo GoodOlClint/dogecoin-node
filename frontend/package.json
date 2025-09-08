@@ -16,14 +16,14 @@
     "axios": "^1.11.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "express-rate-limit": "^8.0.1",
+    "express-rate-limit": "^8.1.0",
     "geoip-lite": "^1.4.10",
     "winston": "^3.17.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.10",
-    "eslint": "^9.34.0",
+    "eslint": "^9.35.0",
     "@microsoft/eslint-formatter-sarif": "^3.0.0",
     "license-checker": "^25.0.1"
   },
