@@ -89,9 +89,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Temporarily disable cache due to GitHub Actions infrastructure issues
-          # cache-from: type=gha
-          # cache-to: type=gha,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Create Git tag for new Dogecoin version
         if: needs.check-dogecoin-release.outputs.new-version == 'true'
