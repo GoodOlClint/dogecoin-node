@@ -47,7 +47,7 @@ RUN set -e && \
     rm -rf /tmp/*
 
 # Stage 2: Build frontend
-FROM node:24-alpine AS frontend-builder
+FROM node:25-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
@@ -55,7 +55,7 @@ RUN npm install --only=production && npm cache clean --force
 COPY frontend/ .
 
 # Stage 3: Runtime image - Use newer Debian bookworm for security fixes
-FROM node:24-bookworm-slim
+FROM node:25-bookworm-slim
 
 # Set shell options for better error handling
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
