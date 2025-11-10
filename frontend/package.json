@@ -13,7 +13,7 @@
     "license-check": "license-checker"
   },
   "dependencies": {
-    "axios": "^1.13.1",
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@microsoft/eslint-formatter-sarif": "^3.0.0",
-    "eslint": "^9.39.0",
+    "eslint": "^9.39.1",
     "license-checker": "^25.0.1",
     "nodemon": "^3.1.0"
   },
