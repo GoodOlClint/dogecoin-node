@@ -8,7 +8,7 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
 # Install minimal tools for fetching latest release and downloading binaries
 # Note: Not pinning versions for build-time tools to avoid breaking when Alpine updates packages
-RUN apk add --no-cache \
+RUN apk update && apk add --no-cache \
     ca-certificates \
     curl \
     jq \
