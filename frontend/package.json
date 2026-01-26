@@ -13,8 +13,8 @@
     "license-check": "license-checker"
   },
   "dependencies": {
-    "axios": "^1.13.2",
-    "cors": "^2.8.5",
+    "axios": "^1.13.3",
+    "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "geoip-lite": "^1.4.10",
