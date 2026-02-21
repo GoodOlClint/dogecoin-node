@@ -80,7 +80,7 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          extra_args: --only-verified --no-verification
+          extra_args: --only-verified
         continue-on-error: true
 
       # Dockerfile Security Scanning
@@ -95,6 +95,7 @@ jobs:
       - name: Upload Hadolint results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
         if: always()
+        continue-on-error: true
         with:
           sarif_file: hadolint-results.sarif
 
@@ -115,6 +116,7 @@ jobs:
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
         if: always()
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -156,13 +158,14 @@ jobs:
       - name: Run ESLint
         working-directory: frontend
         run: |
-          npx eslint . --ext .js --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif || true
+          npx eslint . --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif || true
           echo "## ESLint Results" >> $GITHUB_STEP_SUMMARY
           echo "ESLint analysis completed" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload ESLint results
         uses: github/codeql-action/upload-sarif@v4
         if: always()
+        continue-on-error: true
         with:
           sarif_file: frontend/eslint-results.sarif
 
