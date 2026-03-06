@@ -16,7 +16,7 @@
     "axios": "^1.13.6",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
+    "express-rate-limit": "^8.2.2",
     "geoip-lite": "^2.0.0",
     "winston": "^3.19.0",
     "ws": "^8.19.0"
