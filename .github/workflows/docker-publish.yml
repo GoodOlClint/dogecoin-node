@@ -13,6 +13,7 @@ on:
       - 'Dockerfile'
       - 'frontend/**'
       - '.github/workflows/docker-publish.yml'
+      - 'docker-entrypoint.sh'
 
 env:
   REGISTRY: docker.io
