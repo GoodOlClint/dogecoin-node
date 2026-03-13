@@ -4,9 +4,9 @@ set -e
 # Create directories if they don't exist
 mkdir -p /data /app/logs
 
-# Set secure permissions
-chmod 700 /data
-chmod 755 /app/logs
+# Set secure permissions (may fail on mounted volumes owned by root, which is acceptable)
+chmod 700 /data 2>/dev/null || true
+chmod 755 /app/logs 2>/dev/null || true
 
 # Function to log with timestamp
 log() {
