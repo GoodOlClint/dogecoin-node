@@ -84,8 +84,10 @@ const initializeServices = async () => {
 const configureApp = () => {
     serverLogger.info('🔧 Configuring Express application...');
 
-    // Trust proxy for accurate IP addresses
-    app.set('trust proxy', true);
+    // Trust only the first proxy hop (e.g., a single reverse proxy like nginx).
+    // Using `true` would trust ALL X-Forwarded-For headers, allowing attackers
+    // to spoof their IP and bypass rate limiting.
+    app.set('trust proxy', 1);
 
     // Request timeout
     app.use(requestTimeout(config.server.requestTimeout));
@@ -183,6 +185,21 @@ const initializeWebSocket = () => {
     });
 
     wss.on('connection', (ws, req) => {
+        // Token-based authentication
+        const authToken = config.websocket.authToken;
+        if (authToken) {
+            const { URL: NodeURL } = require('node:url');
+            const url = new NodeURL(req.url, `http://${req.headers.host}`);
+            const clientToken = url.searchParams.get('token');
+            if (clientToken !== authToken) {
+                serverLogger.warn('Unauthorized WebSocket connection rejected', {
+                    ip: req.socket.remoteAddress
+                });
+                ws.close(1008, 'Unauthorized');
+                return;
+            }
+        }
+
         const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
         ws.clientId = clientId;
 

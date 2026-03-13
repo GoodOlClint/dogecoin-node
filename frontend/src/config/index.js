@@ -53,7 +53,8 @@ const config = {
     // WebSocket Configuration
     websocket: {
         heartbeatInterval: parseInt(process.env.WS_HEARTBEAT, 10) || 30000,
-        maxConnections: parseInt(process.env.WS_MAX_CONNECTIONS, 10) || 100
+        maxConnections: parseInt(process.env.WS_MAX_CONNECTIONS, 10) || 100,
+        authToken: process.env.WS_AUTH_TOKEN || null
     },
 
     // Rate Limiting

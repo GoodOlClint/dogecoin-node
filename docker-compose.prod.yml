@@ -11,9 +11,11 @@ services:
     volumes:
       - dogecoin_data:/root/.dogecoin
       - ./logs:/var/log/dogecoin
+    # RPC credentials must be set in your environment or .env file before running.
+    # Do NOT commit plaintext credentials to version control.
     environment:
-      - DOGECOIN_RPCUSER=dogeuser
-      - DOGECOIN_RPCPASSWORD=dogepass123
+      - DOGECOIN_RPCUSER=${DOGECOIN_RPCUSER:?Set DOGECOIN_RPCUSER in your environment}
+      - DOGECOIN_RPCPASSWORD=${DOGECOIN_RPCPASSWORD:?Set DOGECOIN_RPCPASSWORD in your environment}
       - DOGECOIN_RPCPORT=22555
       - DOGECOIN_PORT=22556
     restart: unless-stopped

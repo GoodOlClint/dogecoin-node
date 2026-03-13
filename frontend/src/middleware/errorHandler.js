@@ -12,7 +12,7 @@ const logger = createChildLogger({ service: 'error-middleware' });
  * Global error handler middleware
  * Must be used as the last middleware in the chain
  */
-const errorHandler = (err, req, res) => {
+const errorHandler = (err, req, res, _next) => {
     // Log the error with context
     logger.error('Unhandled error in request', {
         error: err.message,

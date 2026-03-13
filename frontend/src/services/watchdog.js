@@ -328,6 +328,10 @@ return;
         const currentHashRate = this.calculateHashRate(currentDifficulty);
         const baselineHashRate = this.baselines.avgHashRate;
 
+        if (!baselineHashRate) {
+            return;
+        }
+
         const ratio = currentHashRate / baselineHashRate;
 
         if (ratio > this.thresholds.hashRateSpike) {
@@ -363,6 +367,11 @@ return;
      */
     checkDifficultySpikes(currentDifficulty) {
         const baselineDifficulty = this.baselines.avgDifficulty;
+
+        if (!baselineDifficulty) {
+            return;
+        }
+
         const ratio = currentDifficulty / baselineDifficulty;
 
         if (ratio > this.thresholds.difficultySpike) {

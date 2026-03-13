@@ -176,7 +176,13 @@ class DogecoinMonitor {
 
     connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/websocket`;
+        let wsUrl = `${protocol}//${window.location.host}/websocket`;
+
+        // Include auth token if available
+        const wsAuthToken = window.WS_AUTH_TOKEN;
+        if (wsAuthToken) {
+            wsUrl += `?token=${encodeURIComponent(wsAuthToken)}`;
+        }
 
         console.log('Attempting WebSocket connection to:', wsUrl);
 
