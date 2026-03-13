@@ -65,6 +65,7 @@ SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    gosu \
     libboost-chrono1.74.0 \
     libboost-filesystem1.74.0 \
     libboost-program-options1.74.0 \
@@ -115,8 +116,7 @@ EXPOSE 22556 3000
 # Set default environment variables
 ENV NODE_ENV=production
 
-# Switch to non-root user
-USER dogecoin
+# Entrypoint runs as root to fix volume permissions, then drops to dogecoin user via gosu
 
 LABEL name="dogecoin-node" 
 LABEL description="Dogecoin fullnode container with web monitoring interface (latest release, optimized)"

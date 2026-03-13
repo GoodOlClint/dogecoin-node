@@ -1,17 +1,23 @@
 #!/bin/bash
 set -e
 
-# Create directories if they don't exist
-mkdir -p /data /app/logs
-
-# Set secure permissions (may fail on mounted volumes owned by root, which is acceptable)
-chmod 700 /data 2>/dev/null || true
-chmod 755 /app/logs 2>/dev/null || true
-
 # Function to log with timestamp
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
+
+# --- Run initial setup as root ---
+# Create directories and fix volume ownership
+mkdir -p /data /app/logs
+chown -R dogecoin:dogecoin /data /app/logs
+chmod 700 /data
+chmod 755 /app/logs
+
+# Re-exec this script as the dogecoin user if currently root
+if [ "$(id -u)" = '0' ]; then
+    log "Fixing volume permissions and dropping to dogecoin user..."
+    exec gosu dogecoin "$0" "$@"
+fi
 
 # Function to wait for dogecoind to be ready
 wait_for_dogecoin() {
@@ -67,7 +73,6 @@ log "Starting Dogecoin Node Monitor..."
 log "Starting Dogecoin daemon..."
 dogecoind -datadir=/data -disablewallet \
     -printtoconsole=1 \
-    -daemon \
     -pid=/data/dogecoind.pid > /app/logs/dogecoind.log 2>&1 &
 
 DOGECOIND_PID=$!
