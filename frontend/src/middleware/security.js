@@ -17,8 +17,7 @@ const createRateLimiter = (options = {}) => {
         max: 500, // increased from 100 to 500 requests per windowMs
         message: {
             error: 'RATE_LIMITED',
-            message: 'Too many requests from this IP, please try again later',
-            timestamp: new Date().toISOString()
+            message: 'Too many requests from this IP, please try again later'
         },
         standardHeaders: true,
         legacyHeaders: false,
@@ -29,7 +28,8 @@ const createRateLimiter = (options = {}) => {
                 url: req.url
             });
 
-            res.status(429).json(optionsUsed?.message || options.message || defaults.message);
+            const body = optionsUsed?.message || options.message || defaults.message;
+            res.status(429).json({ ...body, timestamp: new Date().toISOString() });
         }
     };
 
@@ -45,8 +45,7 @@ const apiRateLimit = createRateLimiter({
     trustProxy: false, // Do not trust proxy for rate limiting
     message: {
         error: 'RATE_LIMITED',
-        message: 'Too many API requests, please try again later',
-        timestamp: new Date().toISOString()
+        message: 'Too many API requests, please try again later'
     }
 });
 
@@ -59,8 +58,7 @@ const strictRateLimit = createRateLimiter({
     trustProxy: false, // Explicitly set for security
     message: {
         error: 'RATE_LIMITED',
-        message: 'Too many requests for this operation, please try again later',
-        timestamp: new Date().toISOString()
+        message: 'Too many requests for this operation, please try again later'
     }
 });
 

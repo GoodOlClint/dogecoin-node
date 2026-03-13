@@ -9,22 +9,22 @@
 
 | Category | Status | Finding Count |
 |----------|--------|---------------|
-| Language version & standards | NEEDS WORK | 2 |
-| Dependencies | GOOD | 2 |
-| Security | NEEDS WORK | 5 |
-| Code quality & fragility | NEEDS WORK | 7 |
+| Language version & standards | FIXED | 2 |
+| Dependencies | FIXED | 2 |
+| Security | FIXED | 5 |
+| Code quality & fragility | FIXED | 7 |
 | Structure & separation | GOOD | 2 |
 | Documentation | NEEDS WORK | 5 |
-| Tests | CRITICAL | 1 |
-| CI/CD | NEEDS WORK | 2 |
+| Tests | FIXED | 1 |
+| CI/CD | FIXED | 2 |
 
 ---
 
 ## Prioritized Findings
 
-### Tier 1 — Fix before any public release or production use
+### Tier 1 — Fix before any public release or production use (ALL COMPLETE)
 
-#### 1.1 Express error handler will never execute
+#### 1.1 Express error handler will never execute -- FIXED
 
 **File:** `frontend/src/middleware/errorHandler.js:15`
 **Problem:** The global error handler has the signature `(err, req, res)` — three parameters. Express identifies error-handling middleware by its four-parameter signature `(err, req, res, next)`. Without the `next` parameter, Express treats this as regular middleware and skips it for error handling.
@@ -39,7 +39,7 @@ const errorHandler = (err, req, res) => {
 const errorHandler = (err, req, res, _next) => {
 ```
 
-#### 1.2 Hardcoded default RPC credentials in production compose file
+#### 1.2 Hardcoded default RPC credentials in production compose file -- FIXED
 
 **File:** `docker-compose.prod.yml:15-16`
 **Problem:** The file contains `DOGECOIN_RPCUSER=dogeuser` and `DOGECOIN_RPCPASSWORD=dogepass123`. This file is named `.prod.yml` and tracked in git, giving the appearance that these are usable production values.
@@ -52,7 +52,7 @@ environment:
   - DOGECOIN_RPCPASSWORD=${DOGECOIN_RPCPASSWORD:?Set RPC password}
 ```
 
-#### 1.3 No test suite exists
+#### 1.3 No test suite exists -- FIXED
 
 **Problem:** The project has zero unit tests, zero integration tests, no test framework configured, and no `test` script in `package.json`.
 **Why it matters:** There is no automated way to verify that changes don't break existing functionality. The watchdog threat detection logic, RPC retry behavior, and API input validation are all complex enough to harbor latent bugs.
@@ -62,7 +62,7 @@ environment:
 2. **Watchdog threat detection** (`src/services/watchdog.js`): Test threshold comparisons for hash rate spikes/drops, difficulty spikes, mempool flooding, deep reorg detection. These are pure logic tests that don't need a live node.
 3. **API input validation** (`src/routes/api.js`): Test parameter validation for block count bounds, block hash format, RPC method whitelist rejection.
 
-#### 1.4 `trust proxy` set to `true` allows IP spoofing
+#### 1.4 `trust proxy` set to `true` allows IP spoofing -- FIXED
 
 **File:** `frontend/server.js:88`
 **Problem:** `app.set('trust proxy', true)` tells Express to trust all `X-Forwarded-For` headers from any source. An attacker can send arbitrary `X-Forwarded-For` values to bypass rate limiting (which keys on `req.ip`).
@@ -77,7 +77,7 @@ app.set('trust proxy', 1);
 app.set('trust proxy', 'loopback');
 ```
 
-#### 1.5 WebSocket endpoint has no authentication
+#### 1.5 WebSocket endpoint has no authentication -- FIXED
 
 **File:** `frontend/server.js:176-329`
 **Problem:** Any client can connect to the `/websocket` endpoint and receive all watchdog alerts, node status, and metrics. There is no token, API key, or session validation.
@@ -97,23 +97,23 @@ wss.on('connection', (ws, req) => {
 
 ---
 
-### Tier 2 — Fix before considering the project maintainable by others
+### Tier 2 — Fix before considering the project maintainable by others (7/8 COMPLETE)
 
-#### 2.1 Delete deprecated `frontend/watchdog.js`
+#### 2.1 Delete deprecated `frontend/watchdog.js` -- FIXED
 
 **File:** `frontend/watchdog.js` (509 lines)
 **Problem:** This is the old watchdog implementation, fully superseded by `frontend/src/services/watchdog.js`. It is not imported anywhere but remains in the repository.
 **Why it matters:** Contributors may not know which file is canonical. The old file uses a different RPC client pattern (direct `axios` calls vs. the `DogecoinRPCService` class) which could cause confusion.
 **Fix:** Delete `frontend/watchdog.js`.
 
-#### 2.2 Remove unused `cors` dependency
+#### 2.2 Remove unused `cors` dependency -- FIXED
 
 **File:** `frontend/package.json:17`
 **Problem:** The `cors` package is listed as a production dependency but is never imported or used anywhere in the codebase. The project implements its own CORS handler in `src/middleware/security.js:236-274`.
 **Why it matters:** Unnecessary dependency adds attack surface and maintenance burden.
 **Fix:** `npm uninstall cors`.
 
-#### 2.3 Unbounded cache growth in peer enrichment service
+#### 2.3 Unbounded cache growth in peer enrichment service -- FIXED
 
 **File:** `frontend/src/services/peerEnrichment.js:13-14`
 **Problem:** The `dnsCache` and `geoCache` Maps grow without bound. The `clearExpiredCache()` method exists (line 270) but is never called — there is no periodic cleanup, and entries are only overwritten when the same IP is looked up again after expiry.
@@ -128,7 +128,7 @@ constructor() {
 }
 ```
 
-#### 2.4 Pin Docker base image to Node 22 LTS
+#### 2.4 Pin Docker base image to Node 22 LTS -- FIXED
 
 **Files:** `Dockerfile:50, 58`
 **Problem:** The Dockerfile uses `node:25-alpine` and `node:25-bookworm-slim`. Node 25 is a current (odd-numbered) release, not an LTS release. It will reach end-of-life quickly and won't receive long-term security patches.
@@ -142,21 +142,21 @@ constructor() {
 **Why it matters:** New contributors or operators cannot configure the application without reading source code. Watchdog thresholds are security-critical parameters that users should be able to tune.
 **Fix:** Add an environment variable reference table to the README. Create a `CONTRIBUTING.md` covering development setup, project structure, and how to run the application locally.
 
-#### 2.6 Rate limit error response uses static timestamp
+#### 2.6 Rate limit error response uses static timestamp -- FIXED
 
 **File:** `frontend/src/middleware/security.js:21, 48`
 **Problem:** The `timestamp` in the rate limit response message is set to `new Date().toISOString()` at module load time — not when the rate limit is actually triggered. Every rate-limited response will show the same timestamp (when the server started).
 **Why it matters:** Misleading timestamps in error responses make debugging difficult.
 **Fix:** Move the timestamp generation into the `handler` function, or remove it from the static `message` object and add it in the handler.
 
-#### 2.7 Duplicate RPC service instances
+#### 2.7 Duplicate RPC service instances -- FIXED
 
 **Files:** `frontend/server.js:57` and `frontend/src/routes/api.js:20-25`
 **Problem:** `server.js` creates `rpcService = new DogecoinRPCService()` on line 57, but `api.js` creates its own independent instance via `initializeRPC()` on first request. The server's instance is used for the watchdog; the route's instance is used for API calls.
 **Why it matters:** Two independent RPC clients read the cookie file separately and maintain separate connection state. If one detects an auth failure, the other won't know. This also wastes resources.
 **Fix:** Pass the RPC service instance from `server.js` into the API router, similar to how the watchdog is injected into watchdog routes.
 
-#### 2.8 Add test script and basic test framework
+#### 2.8 Add test script and basic test framework -- FIXED (Tier 1)
 
 **File:** `frontend/package.json`
 **Problem:** No `test` script defined in package.json. Running `npm test` fails with an error.
@@ -171,9 +171,9 @@ constructor() {
 
 ---
 
-### Tier 3 — Quality improvements (address over time)
+### Tier 3 — Quality improvements (4/7 COMPLETE)
 
-#### 3.1 `console.log` in production watchdog code
+#### 3.1 `console.log` in production watchdog code -- FIXED
 
 **File:** `frontend/src/services/watchdog.js:664`
 **Problem:** `console.log(\`🚨 ALERT: ${message}\`)` is called for every alert alongside the Winston logger on the previous line. In production, this bypasses log levels, formatting, and rotation.
@@ -189,13 +189,13 @@ constructor() {
 **Problem:** No `CHANGELOG.md` exists. Release history is only available through git log and GitHub releases.
 **Fix:** Create a `CHANGELOG.md` following Keep a Changelog format. Going forward, update it with each release.
 
-#### 3.4 Sequential block fetching in API route
+#### 3.4 Sequential block fetching in API route -- FIXED
 
 **File:** `frontend/src/routes/api.js:255-263`
 **Problem:** The `/api/blocks/:count` endpoint fetches blocks sequentially in a `for` loop — each block requires two RPC calls (`getblockhash` + `getblock`), making a request for 100 blocks issue 200 sequential RPC calls.
 **Fix:** Batch the block hash requests or use `Promise.all` with a concurrency limit to parallelize fetching (e.g., 10 at a time).
 
-#### 3.5 Unused `asyncHandler` utility
+#### 3.5 Unused `asyncHandler` utility -- FIXED (removed)
 
 **File:** `frontend/src/middleware/errorHandler.js:103-107`
 **Problem:** `asyncHandler` is defined and exported but never imported or used by any route. All async route handlers are written inline without wrapping.
@@ -206,7 +206,7 @@ constructor() {
 **Problem:** The server runs HTTP only (no TLS). This is acceptable behind a reverse proxy, but nowhere in the README or docker-compose configuration is this mentioned. Users may deploy the dashboard directly on the internet without encryption.
 **Fix:** Add a "Production Deployment" section to the README documenting that a reverse proxy (nginx, Traefik, Caddy) with TLS is required for production use. Provide an example nginx configuration.
 
-#### 3.7 Add ESLint to publish workflow
+#### 3.7 Add ESLint and tests to publish workflow -- FIXED
 
 **File:** `.github/workflows/docker-publish.yml`
 **Problem:** ESLint is only run in the `security-scan.yml` workflow, not in the main publish workflow. Code with lint errors can be published to Docker Hub.

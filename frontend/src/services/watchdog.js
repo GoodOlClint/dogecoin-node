@@ -670,7 +670,6 @@ return;
         this.alerts = this.alerts.slice(0, 1000); // Keep last 1000 alerts
 
         this.logger.warn(`WATCHDOG ALERT [${severity}] ${type}: ${message}`);
-        console.log(`🚨 ALERT: ${message}`);
 
         this.emit('alert', alert);
     }

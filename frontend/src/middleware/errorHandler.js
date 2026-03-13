@@ -97,16 +97,6 @@ const notFoundHandler = (req, res) => {
 };
 
 /**
- * Async wrapper to handle async route errors
- * Wraps async route handlers to ensure errors are caught
- */
-const asyncHandler = (fn) => {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next)).catch(next);
-    };
-};
-
-/**
  * Request timeout middleware
  * Prevents requests from hanging indefinitely
  */
@@ -140,6 +130,5 @@ const requestTimeout = (timeoutMs = 30000) => {
 module.exports = {
     errorHandler,
     notFoundHandler,
-    asyncHandler,
     requestTimeout
 };

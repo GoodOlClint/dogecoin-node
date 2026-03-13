@@ -13,6 +13,13 @@ class PeerEnrichmentService {
         this.dnsCache = new Map();
         this.geoCache = new Map();
         this.cacheTimeout = 1000 * 60 * 60; // 1 hour cache
+
+        // Periodically clear expired cache entries to prevent unbounded growth
+        this._cacheCleanupInterval = setInterval(() => this.clearExpiredCache(), this.cacheTimeout);
+        // Allow the process to exit even if the interval is still active
+        if (this._cacheCleanupInterval.unref) {
+            this._cacheCleanupInterval.unref();
+        }
     }
 
     /**

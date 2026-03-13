@@ -12,19 +12,24 @@ const router = createRouter();
 const logger = createChildLogger({ service: 'api-routes' });
 
 /**
- * Initialize services
+ * Services — injected via initializeAPI() from server.js to avoid duplicate instances.
+ * Falls back to creating its own instances if not injected (e.g., standalone use).
  */
 let rpcService;
 let peerEnrichmentService;
 
-const initializeRPC = () => {
+const initializeAPI = (injectedRPCService) => {
+    rpcService = injectedRPCService;
+};
+
+const getRPC = () => {
     if (!rpcService) {
         rpcService = new DogecoinRPCService();
     }
     return rpcService;
 };
 
-const initializePeerEnrichment = () => {
+const getPeerEnrichment = () => {
     if (!peerEnrichmentService) {
         peerEnrichmentService = new PeerEnrichmentService();
     }
@@ -58,7 +63,7 @@ const handleAPIError = (res, error, operation) => {
  */
 router.get('/health', async(req, res) => {
     try {
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const isHealthy = await rpc.testConnection();
 
         if (isHealthy) {
@@ -86,7 +91,7 @@ router.get('/health', async(req, res) => {
  */
 router.get('/info', async(req, res) => {
     try {
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const [nodeInfo, networkHashPS] = await Promise.all([
             rpc.getNodeInfo(),
             rpc.getNetworkHashPS(120).catch(() => null) // Get hash rate for last 120 blocks, fallback to null if fails
@@ -139,7 +144,7 @@ router.get('/info', async(req, res) => {
  */
 router.get('/status', async(req, res) => {
     try {
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const nodeInfo = await rpc.getNodeInfo();
 
         res.json({
@@ -158,7 +163,7 @@ router.get('/status', async(req, res) => {
  */
 router.get('/blockchain/info', async(req, res) => {
     try {
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const blockchainInfo = await rpc.call('getblockchaininfo');
 
         res.json({
@@ -177,7 +182,7 @@ router.get('/blockchain/info', async(req, res) => {
  */
 router.get('/network/info', async(req, res) => {
     try {
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const networkInfo = await rpc.call('getnetworkinfo');
 
         res.json({
@@ -196,7 +201,7 @@ router.get('/network/info', async(req, res) => {
  */
 router.get('/mempool/info', async(req, res) => {
     try {
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const mempoolInfo = await rpc.call('getmempoolinfo');
 
         res.json({
@@ -215,8 +220,8 @@ router.get('/mempool/info', async(req, res) => {
  */
 router.get('/peers', async(req, res) => {
     try {
-        const rpc = initializeRPC();
-        const enrichment = initializePeerEnrichment();
+        const rpc = getRPC();
+        const enrichment = getPeerEnrichment();
 
         // Get basic peer info from Dogecoin node
         const peerInfo = await rpc.call('getpeerinfo');
@@ -246,31 +251,34 @@ router.get('/blocks/:count', async(req, res) => {
             });
         }
 
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const currentHeight = await rpc.call('getblockcount');
 
-        const blocks = [];
-
-        // Get the requested number of recent blocks
+        // Fetch blocks in parallel for better performance
+        const heights = [];
         for (let i = 0; i < count; i++) {
             const height = currentHeight - i;
             if (height < 0) {
-break;
-}
-
-            const blockHash = await rpc.call('getblockhash', [height]);
-            const block = await rpc.call('getblock', [blockHash]);
-
-            blocks.push({
-                height: block.height,
-                hash: block.hash,
-                time: block.time,
-                mediantime: block.mediantime,
-                size: block.size,
-                txCount: block.tx.length,
-                difficulty: block.difficulty
-            });
+                break;
+            }
+            heights.push(height);
         }
+
+        const blocks = await Promise.all(
+            heights.map(async (height) => {
+                const blockHash = await rpc.call('getblockhash', [height]);
+                const block = await rpc.call('getblock', [blockHash]);
+                return {
+                    height: block.height,
+                    hash: block.hash,
+                    time: block.time,
+                    mediantime: block.mediantime,
+                    size: block.size,
+                    txCount: block.tx.length,
+                    difficulty: block.difficulty
+                };
+            })
+        );
 
         res.json(blocks);
     } catch (error) {
@@ -293,7 +301,7 @@ router.get('/block/:hash', async(req, res) => {
             });
         }
 
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const blockInfo = await rpc.call('getblock', [hash]);
 
         res.json({
@@ -321,7 +329,7 @@ router.get('/block/height/:height', async(req, res) => {
             });
         }
 
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const blockHash = await rpc.call('getblockhash', [height]);
         const blockInfo = await rpc.call('getblock', [blockHash]);
 
@@ -350,7 +358,7 @@ router.get('/transaction/:txid', async(req, res) => {
             });
         }
 
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const txInfo = await rpc.call('getrawtransaction', [txid, true]);
 
         res.json({
@@ -402,7 +410,7 @@ router.post('/rpc', async(req, res) => {
             });
         }
 
-        const rpc = initializeRPC();
+        const rpc = getRPC();
         const result = await rpc.call(method, params);
 
         res.json({
@@ -417,4 +425,4 @@ router.post('/rpc', async(req, res) => {
     }
 });
 
-module.exports = router;
+module.exports = { router, initializeAPI };

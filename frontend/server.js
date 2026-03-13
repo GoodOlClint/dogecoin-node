@@ -15,7 +15,7 @@ const { DogecoinRPCService } = require('./src/services/rpc');
 const DogecoinWatchdog = require('./src/services/watchdog');
 
 // Import routes
-const apiRoutes = require('./src/routes/api');
+const { router: apiRoutes, initializeAPI } = require('./src/routes/api');
 const { router: watchdogRoutes, initializeWatchdog } = require('./src/routes/watchdog');
 
 // Import middleware
@@ -63,6 +63,9 @@ const initializeServices = async () => {
         } else {
             serverLogger.info('✅ Dogecoin RPC connection established');
         }
+
+        // Share the RPC service with API routes (avoid duplicate instances)
+        initializeAPI(rpcService);
 
         // Initialize watchdog service
         watchdog = new DogecoinWatchdog(rpcService);

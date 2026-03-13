@@ -15,8 +15,8 @@
     "license-check": "license-checker"
   },
   "dependencies": {
+    "@eslint/js": "^10.0.1",
     "axios": "^1.13.6",
-    "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.0",
     "geoip-lite": "^2.0.0",
