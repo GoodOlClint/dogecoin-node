@@ -16,16 +16,16 @@
   },
   "dependencies": {
     "@eslint/js": "^10.0.1",
-    "axios": "^1.15.0",
+    "axios": "^1.16.1",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.3.2",
-    "geoip-lite": "^2.0.1",
+    "express-rate-limit": "^8.5.2",
+    "geoip-lite": "^2.0.2",
     "winston": "^3.19.0",
-    "ws": "^8.20.0"
+    "ws": "^8.20.1"
   },
   "devDependencies": {
     "@microsoft/eslint-formatter-sarif": "^3.0.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.4.0",
     "license-checker": "^25.0.1",
     "nodemon": "^3.1.14"
   },
