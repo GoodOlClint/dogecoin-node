@@ -21,7 +21,7 @@
     "express-rate-limit": "^8.5.2",
     "geoip-lite": "^2.0.2",
     "winston": "^3.19.0",
-    "ws": "^8.20.1"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@microsoft/eslint-formatter-sarif": "^3.0.0",
